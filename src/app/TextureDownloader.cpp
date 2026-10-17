@@ -21,7 +21,7 @@ QString TextureDownloader::expectedImagePath(){
 void TextureDownloader::download(){
  if(downloading_)return;
  downloading_=true;
- QNetworkRequest req(QUrl(sourceUrl()));
+ QNetworkRequest req{QUrl(sourceUrl())};
  req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::NoLessSafeRedirectPolicy);
  req.setRawHeader("User-Agent","CelestialAtlas/0.1.0 (educational astronomical viewer)");
  QNetworkReply* reply=network_.get(req);
