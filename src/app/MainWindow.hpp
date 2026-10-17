@@ -15,6 +15,7 @@ public:
  bool loadTextureFromPath(const QString& path);
  void focusDaylight();
  bool captureViewport(const QString& outputPath);
+ bool captureWorkbench(const QString& outputPath);
 private:
  void tick();
  void refreshStatus();

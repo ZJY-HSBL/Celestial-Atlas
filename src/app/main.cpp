@@ -16,23 +16,27 @@ int main(int argc,char* argv[]){
  QApplication app(argc,argv);
  QCoreApplication::setOrganizationName("CelestialAtlas");
  QCoreApplication::setApplicationName("CelestialAtlas");
- QCoreApplication::setApplicationVersion("0.2.1");
+ QCoreApplication::setApplicationVersion("0.2.2");
  QCommandLineParser parser;
  parser.setApplicationDescription("Celestial Atlas earth visualization and scientific capture");
  parser.addHelpOption();
  parser.addVersionOption();
  QCommandLineOption textureOpt({"t","texture"},"NASA Blue Marble PNG file path (2048x1024)","path");
  QCommandLineOption captureOpt({"s","screenshot"},"Capture actual OpenGL viewport PNG then exit","path");
- parser.addOption(textureOpt);parser.addOption(captureOpt);
+ QCommandLineOption workbenchOpt({"w","workbench-screenshot"},"Capture entire actual Qt workspace PNG then exit","path");
+ parser.addOption(textureOpt);parser.addOption(captureOpt);parser.addOption(workbenchOpt);
  parser.process(app);
  atlas::MainWindow window;
  if(parser.isSet(textureOpt) && !window.loadTextureFromPath(parser.value(textureOpt)))return 3;
  window.show();
- if(parser.isSet(captureOpt)){
+ if(parser.isSet(captureOpt)||parser.isSet(workbenchOpt)){
   QTimer::singleShot(1200,&app,[&]{
    window.focusDaylight();
    QTimer::singleShot(1000,&app,[&]{
-    app.exit(window.captureViewport(parser.value(captureOpt))?0:4);
+    bool ok=true;
+    if(parser.isSet(captureOpt))ok=window.captureViewport(parser.value(captureOpt))&&ok;
+    if(parser.isSet(workbenchOpt))ok=window.captureWorkbench(parser.value(workbenchOpt))&&ok;
+    app.exit(ok?0:4);
    });
   });
  }

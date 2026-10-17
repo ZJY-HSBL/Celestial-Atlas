@@ -53,12 +53,12 @@ jobs:
           if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
           Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
           Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
-          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.2.1-Windows-x64.zip") -Force
-          Get-FileHash "CelestialAtlas-v0.2.1-Windows-x64.zip" -Algorithm SHA256 | Format-List
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.2.2-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.2.2-Windows-x64.zip" -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable-x64
-          path: CelestialAtlas-v0.2.1-Windows-x64.zip
+          path: CelestialAtlas-v0.2.2-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -72,7 +72,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             qt6-base-dev libqt6opengl6-dev xvfb xauth \
-            libgl1-mesa-dri libglx-mesa0 libxcb-cursor0 python3-pil
+            libgl1-mesa-dri libglx-mesa0 libxcb-cursor0 python3-pil fonts-noto-cjk
       - name: Compile Linux GUI (not only numerical core)
         shell: bash
         run: |
@@ -90,25 +90,29 @@ jobs:
             xvfb-run -a -s "-screen 0 1280x900x24" \
             ./build-gui/CelestialAtlas \
               --texture "$RUNNER_TEMP/bluemarble-2048.png" \
-              --screenshot "$PWD/CelestialAtlas-real-viewport.png"
+              --screenshot "$PWD/CelestialAtlas-real-viewport.png" \
+              --workbench-screenshot "$PWD/CelestialAtlas-real-workbench.png"
           test -s CelestialAtlas-real-viewport.png
           test -s CelestialAtlas-real-viewport.png.provenance.json
+          test -s CelestialAtlas-real-workbench.png
+          test -s CelestialAtlas-real-workbench.png.provenance.json
       - name: Validate resulting bitmap is nonblank and contains a textured Earth
         shell: bash
         run: |
           /usr/bin/python3 - <<'PY'
           from PIL import Image
           from pathlib import Path
-          p = Path("CelestialAtlas-real-viewport.png")
-          im = Image.open(p).convert("RGB")
-          w,h = im.size
-          assert w >= 300 and h >= 300, f"Unexpected viewport size: {w}x{h}"
-          px=list(im.resize((220,220)).getdata())
-          bright=sum(max(r,g,b)>55 for r,g,b in px)
-          blue=sum(b>r*1.12 and b>g*1.03 and b>65 for r,g,b in px)
-          assert bright > 650, f"Too few visible pixels: {bright}"
-          assert blue > 150, f"No recognizable blue observed texture: {blue}"
-          print(f"Genuine Qt/OpenGL screenshot {w}x{h}, {p.stat().st_size} bytes; visible={bright}, blue={blue}")
+          for filename in ("CelestialAtlas-real-viewport.png","CelestialAtlas-real-workbench.png"):
+              p=Path(filename)
+              im=Image.open(p).convert("RGB")
+              width,height=im.size
+              assert width >= 300 and height >= 300, f"Unexpected dimensions: {filename} {width}x{height}"
+              px=list(im.resize((220,220)).getdata())
+              bright=sum(max(r,g,b)>55 for r,g,b in px)
+              blue=sum(b>r*1.12 and b>g*1.03 and b>65 for r,g,b in px)
+              assert bright > 650, f"No rendered image in {filename}: bright={bright}"
+              assert blue > 150, f"Observed blue Earth not visible in {filename}: blue={blue}"
+              print(f"Actual C++/Qt rendering {filename} {width}x{height}, {p.stat().st_size} bytes; visible={bright}, blue={blue}")
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -116,10 +120,12 @@ jobs:
           path: |
             CelestialAtlas-real-viewport.png
             CelestialAtlas-real-viewport.png.provenance.json
+            CelestialAtlas-real-workbench.png
+            CelestialAtlas-real-workbench.png.provenance.json
           if-no-files-found: error
           retention-days: 30
 
-  release-v0_2_1:
+  release-v0_2_2:
     needs: [core-linux, gui-windows, render-linux]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -137,26 +143,29 @@ jobs:
         with:
           name: verified-earth-render
           path: .
-      - name: Publish immutable v0.2.1 source, portable and real screenshot
+      - name: Publish immutable v0.2.2 source, portable and real screenshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.2.1 >/dev/null 2>&1; then
-            echo "Version v0.2.1 already published. Refusing to overwrite an immutable release."
+          if gh release view v0.2.2 >/dev/null 2>&1; then
+            echo "Version v0.2.2 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          test -s CelestialAtlas-v0.2.1-Windows-x64.zip
-          git archive --format=zip --output=CelestialAtlas-v0.2.1-source.zip HEAD
+          test -s CelestialAtlas-v0.2.2-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.2.2-source.zip HEAD
           test -s CelestialAtlas-real-viewport.png
-          sha256sum CelestialAtlas-v0.2.1-*.zip CelestialAtlas-real-viewport.png > SHA256SUMS.txt
-          gh release create v0.2.1 \
-            CelestialAtlas-v0.2.1-source.zip \
-            CelestialAtlas-v0.2.1-Windows-x64.zip \
+          test -s CelestialAtlas-real-workbench.png
+          sha256sum CelestialAtlas-v0.2.2-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
+          gh release create v0.2.2 \
+            CelestialAtlas-v0.2.2-source.zip \
+            CelestialAtlas-v0.2.2-Windows-x64.zip \
             SHA256SUMS.txt \
             CelestialAtlas-real-viewport.png \
             CelestialAtlas-real-viewport.png.provenance.json \
+            CelestialAtlas-real-workbench.png \
+            CelestialAtlas-real-workbench.png.provenance.json \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.2.1 — Windows Portable + Verified Earth Render' \
+            --title 'Celestial Atlas v0.2.2 — Windows Portable + Verified Earth & Workspace Renders' \
             --prerelease \
             --notes 'Native C++20/Qt6/OpenGL 3.3 portable preview. Linux Mesa CI ran the actual Earth renderer with NASA imagery and validated its PNG export. Windows portable package built and tested on GitHub Actions. Requires a compatible GPU and Microsoft Visual C++ Redistributable (x64). Earth imagery is downloaded separately from NASA. Solar geometry remains approximate; CSPICE is not integrated. A successful CI compile does not guarantee GPU rendering on every PC. See README-WINDOWS.md for use and limitations.'

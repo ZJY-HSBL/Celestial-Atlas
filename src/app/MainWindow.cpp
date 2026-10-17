@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QImage>
+#include <QPixmap>
 #include <QMessageBox>
 #include <QSaveFile>
 #include <QDateTime>
@@ -97,6 +98,19 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
   }
  });
  rightLayout->addWidget(snapshot);
+ auto* workstationShot=new QPushButton(QStringLiteral("保存完整工作台截图"));
+ connect(workstationShot,&QPushButton::clicked,this,[this]{
+  if(!viewport_->hasObservedTexture()){
+   QMessageBox::warning(this,QStringLiteral("影像未加载"),QStringLiteral("请先加载 NASA 真实影像。"));return;
+  }
+  const QString path=QFileDialog::getSaveFileName(this,QStringLiteral("保存完整工作台截图"),
+   QStringLiteral("CelestialAtlas-Workbench.png"),QStringLiteral("PNG 图像 (*.png)"));
+  if(path.isEmpty())return;
+  if(!captureWorkbench(path)){
+   QMessageBox::warning(this,QStringLiteral("截图失败"),QStringLiteral("未能生成真实工作台截图。"));
+  }
+ });
+ rightLayout->addWidget(workstationShot);
  auto* reset=new QPushButton(QStringLiteral("重置观察视角"));
  connect(reset,&QPushButton::clicked,viewport_,&EarthViewport::resetCamera);
  rightLayout->addWidget(reset);
@@ -120,7 +134,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.2.1"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.2.2"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -199,7 +213,26 @@ void MainWindow::refreshStatus(){
 void MainWindow::focusDaylight(){viewport_->focusDaylight();}
 bool MainWindow::loadTextureFromPath(const QString& path){
  if(!viewport_->setTextureFile(path))return false;
- textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\\n真实观测拼接影像"));
+ textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\n真实观测拼接影像"));
+ return true;
+}
+bool MainWindow::captureWorkbench(const QString& outputPath){
+ if(!viewport_->isValid()||!viewport_->hasObservedTexture())return false;
+ const QPixmap pixels=grab();
+ if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
+ QJsonObject provenance{
+  {"application","Celestial Atlas 0.2.2"},
+  {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
+  {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
+  {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
+  {"earth_texture_kind","Observed NASA Blue Marble multi-date mosaic, NOT a live Earth image"},
+  {"solar_geometry","Low-precision solar model, NOT CSPICE"}
+ };
+ QSaveFile meta(outputPath+QStringLiteral(".provenance.json"));
+ if(meta.open(QIODevice::WriteOnly)){
+  const QByteArray data=QJsonDocument(provenance).toJson();
+  if(meta.write(data)==data.size())meta.commit();else meta.cancelWriting();
+ }
  return true;
 }
 bool MainWindow::captureViewport(const QString& outputPath){
@@ -207,7 +240,7 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.2.1"},
+  {"application","Celestial Atlas 0.2.2"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},

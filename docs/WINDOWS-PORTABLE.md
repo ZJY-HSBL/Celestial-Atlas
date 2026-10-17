@@ -1,11 +1,11 @@
-# Celestial Atlas v0.2.1 — Windows portable preview
-# Celestial Atlas v0.2.1 — Windows 便携预览版
+# Celestial Atlas v0.2.2 — Windows portable preview
+# Celestial Atlas v0.2.2 — Windows 便携预览版
 
 1. Extract the **entire** ZIP archive, not just CelestialAtlas.exe.
 2. Open the extracted CelestialAtlas folder and launch CelestialAtlas.exe.
 3. Click **下载 NASA 真实影像** to download NASA's 2048x1024 Blue Marble mosaic on demand. Internet access is needed once for the original image download.
 4. Drag with the left mouse button to orbit the camera; use the mouse wheel to zoom. Use the UTC/time-rate controls to inspect Earth's rotation and approximate solar terminator.
-5. Use **保存真实渲染截图** after downloading NASA imagery to save an unmodified application viewport PNG plus a provenance JSON. If texture download fails or the OpenGL renderer is unavailable, the export will not pretend the placeholder is a real Earth image.
+5. Use **保存真实渲染截图** (OpenGL viewport) or **保存完整工作台截图** (the actual full desktop application) after downloading NASA imagery to save an unmodified application viewport PNG plus a provenance JSON. If texture download fails or the OpenGL renderer is unavailable, the export will not pretend the placeholder is a real Earth image.
 
 **Requirements:** Windows x64, GPU/driver supporting OpenGL 3.3 core profile, and current Microsoft Visual C++ x64 Redistributable. Qt libraries are bundled. No Python installation is required. Install the official Visual C++ Redistributable if necessary: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
 
