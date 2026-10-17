@@ -1,0 +1,65 @@
+name: C++ build and scientific core tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure astronomy core
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DATLAS_BUILD_GUI=OFF
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  gui-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+      - name: Configure Qt GUI
+        shell: pwsh
+        run: cmake -S . -B build -G 'Visual Studio 17 2022' -A x64
+      - name: Build GUI
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
+  release-source:
+    needs: [core-linux, gui-windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Publish versioned source archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view v0.1.0 >/dev/null 2>&1; then
+            echo "v0.1.0 exists; not replacing prior release"
+            exit 0
+          fi
+          git archive --format=zip --output=CelestialAtlas-v0.1.0-source.zip HEAD
+          gh release create v0.1.0 CelestialAtlas-v0.1.0-source.zip \
+            --target "${GITHUB_SHA}" \
+            --title 'Celestial Atlas v0.1.0 — Source Prototype' \
+            --notes 'C++/Qt6/OpenGL Earth prototype. Source archive only; no verified Windows executable yet. Real NASA imagery is downloaded separately. Solar calculations are low precision; CSPICE not integrated.'

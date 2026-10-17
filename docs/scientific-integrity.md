@@ -1,0 +1,14 @@
+# Scientific integrity / 科学真实性规范
+
+1. Separate **observed imagery**, **measurement-constrained visualization** and **artistic illustration**. Artistic illustrations must never masquerade as observation.
+2. For every data asset, record original source URL, mission or archive, processing description, time if known, scientific references when applicable, and SHA-256.
+3. NASA Blue Marble is a processed composite of multiple satellite observations. It is neither a single raw frame nor a live map of Earth.
+4. The current Sun position and Earth rotation use a *low-precision approximation*. The computation substitutes UTC where high-precision Earth orientation would need UT1, TT/TDB, polar motion, precession/nutation and IERS data.
+5. No fictional exoplanet surfaces. Without measured resolved imaging, present a point detection and known parameters, or mark data unavailable.
+6. Treat a single spacecraft view of Jupiter or Saturn as observed imagery, **not** as a measured global equirectangular texture.
+7. Do not quietly add random data to fill gaps in imagery or catalog coordinates. Flag missing and uncertain measurements.
+8. User-selected visual time may run at accelerated rates; the camera's faster-than-light navigation is a UI animation, not physical travel.
+
+## Planned precision migration
+
+Use NAIF CSPICE kernels with explicit kernel manifests (LSK, SPK, PCK, Earth orientation kernels as appropriate) and state whether a computed position is geometric/apparent, specify the frame and corrections, and validate specific times and targets against JPL Horizons. Maintain time-scale conversions and coordinate-frame provenance.

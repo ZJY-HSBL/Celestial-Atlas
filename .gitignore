@@ -1,0 +1,14 @@
+/build/
+/build-*/
+/.vs/
+/.idea/
+*.user
+__pycache__/
+*.pyc
+*.zip
+/assets/nasa/
+*.bsp
+*.spk
+*.fits
+*.fit
+*.parquet

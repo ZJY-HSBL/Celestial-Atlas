@@ -1,0 +1,20 @@
+{
+  "schema_version":1,
+  "policy":"No fabricated astronomical imagery; observation is distinguished from global mosaics and conjectural reconstructions",
+  "targets":[
+    {
+      "id":"earth",
+      "status":"implemented-on-demand",
+      "source_page":"https://svs.gsfc.nasa.gov/2915/",
+      "raw_asset":"https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-2048.png",
+      "resource_type":"global-equirectangular-satellite-composite",
+      "attribution":"NASA Goddard Space Flight Center Scientific Visualization Studio",
+      "temporal_truth":"multi-date observed composite, not live imagery"
+    },
+    {"id":"moon","status":"planned","source_page":"https://trek.nasa.gov/moon/","resource_type":"LRO measured lunar mosaics/terrain"},
+    {"id":"mars","status":"planned","source_page":"https://science.nasa.gov/resource/mars-global-coverage-by-context-camera-on-mro/","resource_type":"MRO CTX imaging mosaic"},
+    {"id":"jupiter","status":"planned","source_page":"https://www.jpl.nasa.gov/images/pia22946-jupiter-marble/","resource_type":"processed JunoCam observed image; not a full-surface atlas"},
+    {"id":"saturn","status":"planned","source_page":"https://science.nasa.gov/missions/cassini/cassini-image-mosaic-a-farewell-to-saturn/","resource_type":"Cassini observed composite"},
+    {"id":"m31","status":"planned","source_page":"https://science.nasa.gov/asset/hubble/hubble-m31-phatphast-mosaic/","resource_type":"observational galaxy mosaic, not a measured 3D reconstruction"}
+  ]
+}
