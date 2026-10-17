@@ -19,6 +19,7 @@ public:
  bool setTextureFile(const QString& path);
  bool hasObservedTexture() const { return texture_ != 0; }
  void resetCamera();
+ void focusDaylight();
 protected:
  void initializeGL() override;
  void resizeGL(int width,int height) override;

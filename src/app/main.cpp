@@ -16,7 +16,7 @@ int main(int argc,char* argv[]){
  QApplication app(argc,argv);
  QCoreApplication::setOrganizationName("CelestialAtlas");
  QCoreApplication::setApplicationName("CelestialAtlas");
- QCoreApplication::setApplicationVersion("0.2.0");
+ QCoreApplication::setApplicationVersion("0.2.1");
  QCommandLineParser parser;
  parser.setApplicationDescription("Celestial Atlas earth visualization and scientific capture");
  parser.addHelpOption();
@@ -29,8 +29,11 @@ int main(int argc,char* argv[]){
  if(parser.isSet(textureOpt) && !window.loadTextureFromPath(parser.value(textureOpt)))return 3;
  window.show();
  if(parser.isSet(captureOpt)){
-  QTimer::singleShot(2500,&app,[&]{
-   app.exit(window.captureViewport(parser.value(captureOpt))?0:4);
+  QTimer::singleShot(1200,&app,[&]{
+   window.focusDaylight();
+   QTimer::singleShot(1000,&app,[&]{
+    app.exit(window.captureViewport(parser.value(captureOpt))?0:4);
+   });
   });
  }
  return app.exec();

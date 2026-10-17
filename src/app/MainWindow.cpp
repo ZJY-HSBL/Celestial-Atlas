@@ -76,6 +76,9 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
   "太阳方向：低精度近似算法（尚非 JPL 精密星历）\n"
   "地球影像：NASA 多日期卫星拼接，非实时云图\n"
   "大气光照：可视化近似，不是辐射传输模型"),"caution"));
+ auto* focus=new QPushButton(QStringLiteral("聚焦当前地球白昼面"));
+ connect(focus,&QPushButton::clicked,viewport_,&EarthViewport::focusDaylight);
+ rightLayout->addWidget(focus);
  auto* snapshot=new QPushButton(QStringLiteral("保存真实渲染截图"));
  connect(snapshot,&QPushButton::clicked,this,[this]{
   if(!viewport_->hasObservedTexture()){
@@ -117,7 +120,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.2.0"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.2.1"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -193,6 +196,7 @@ void MainWindow::refreshStatus(){
  .arg(sun.subsolarLatitudeDeg,0,'f',3)
  .arg(sun.subsolarLongitudeDeg,0,'f',3));
 }
+void MainWindow::focusDaylight(){viewport_->focusDaylight();}
 bool MainWindow::loadTextureFromPath(const QString& path){
  if(!viewport_->setTextureFile(path))return false;
  textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\\n真实观测拼接影像"));
@@ -203,7 +207,7 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.2.0"},
+  {"application","Celestial Atlas 0.2.1"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},

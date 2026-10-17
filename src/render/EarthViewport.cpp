@@ -35,6 +35,13 @@ bool EarthViewport::setTextureFile(const QString& path){
  if(glInitialized_){makeCurrent();bool ok=reloadTexture();doneCurrent();update();return ok;}
  return true;
 }
+void EarthViewport::focusDaylight(){
+ const float pi=3.14159265358979323846f;
+ yaw_=std::atan2(sunWorld_.z(),sunWorld_.x())*180.0f/pi;
+ pitch_=std::asin(std::clamp(sunWorld_.y(),-1.0f,1.0f))*180.0f/pi;
+ radius_=2.9f;
+ update();
+}
 void EarthViewport::resetCamera(){yaw_=39.0f;pitch_=19.0f;radius_=3.3f;update();}
 void EarthViewport::initializeGL(){
  initializeOpenGLFunctions();

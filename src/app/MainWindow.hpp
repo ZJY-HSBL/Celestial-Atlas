@@ -13,6 +13,7 @@ class MainWindow final:public QMainWindow {
 public:
  explicit MainWindow(QWidget* parent=nullptr);
  bool loadTextureFromPath(const QString& path);
+ void focusDaylight();
  bool captureViewport(const QString& outputPath);
 private:
  void tick();
