@@ -29,5 +29,27 @@ int main(){
  expect(dec.declinationDeg< -23.3&&dec.declinationDeg> -23.6,"December solstice");
  expect(std::abs(solarAltitudeDeg(jun,jun.subsolarLatitudeDeg,jun.subsolarLongitudeDeg)-90.0)<1e-5,"subsolar altitude");
  expect(std::abs(solarAltitudeDeg(jun,-jun.subsolarLatitudeDeg,normalize180(jun.subsolarLongitudeDeg+180))+90.0)<1e-5,"antipodal altitude");
+ auto equator=surfaceNormalInertial(0.0,0.0,0.0);
+ expect(std::abs(equator.x-1.0)<1e-12 && std::abs(equator.y)<1e-12 && std::abs(equator.z)<1e-12,
+        "Greenwich equator normal");
+ auto north=surfaceNormalInertial(90.0,0.0,90.0);
+ expect(std::abs(north.y-1.0)<1e-12,"north pole normal independent of sidereal rotation");
+ auto east=surfaceNormalInertial(0.0,90.0,0.0);
+ expect(std::abs(east.z-1.0)<1e-12,"east longitude matches RA 90 positive Z");
+ auto sun=celestialUnitVector(jun.rightAscensionDeg,jun.declinationDeg);
+ auto surface=surfaceNormalInertial(jun.subsolarLatitudeDeg,jun.subsolarLongitudeDeg,jun.greenwichMeanSiderealDeg);
+ expect(std::abs(dot(sun,surface)-1.0)<1e-10,"solar model and Earth rotation agree at subsolar point");
+ auto antipode=surfaceNormalInertial(-jun.subsolarLatitudeDeg,
+     normalize180(jun.subsolarLongitudeDeg+180),jun.greenwichMeanSiderealDeg);
+ expect(std::abs(dot(sun,antipode)+1.0)<1e-10,"opposite side of Earth is in darkness");
+ for(int lat=-75;lat<=75;lat+=25){
+  for(int lon=-180;lon<=180;lon+=30){
+   const auto p=surfaceNormalInertial(lat,lon,mar.greenwichMeanSiderealDeg);
+   const auto d=celestialUnitVector(mar.rightAscensionDeg,mar.declinationDeg);
+   const double a=solarAltitudeDeg(mar,lat,lon);
+   expect(std::abs(dot(p,d)-std::sin(a*3.14159265358979323846/180.0))<1e-12,
+          "geographic sun altitude matches inertial 3D lighting");
+  }
+ }
  return failures?EXIT_FAILURE:EXIT_SUCCESS;
 }

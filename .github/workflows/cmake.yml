@@ -1,6 +1,7 @@
-name: C++ build and scientific core tests
+name: Build, Test and Release
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -12,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure astronomy core
+      - name: Configure science core
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DATLAS_BUILD_GUI=OFF
-      - name: Build
+      - name: Compile C++20
         run: cmake --build build --parallel
-      - name: Test
+      - name: Run geometry/solar tests
         run: ctest --test-dir build --output-on-failure
 
   gui-windows:
@@ -29,17 +30,60 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2022_64
-      - name: Configure Qt GUI
+      - name: Configure Qt6 / Visual Studio
         shell: pwsh
         run: cmake -S . -B build -G 'Visual Studio 17 2022' -A x64
-      - name: Build GUI
+      - name: Compile native Qt GUI
         shell: pwsh
         run: cmake --build build --config Release --parallel
-      - name: Test
+      - name: Run scientific core tests
         shell: pwsh
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Deploy portable Windows build with official Qt tool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dist = Join-Path $PWD "dist/CelestialAtlas"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          $binary = Join-Path $PWD "build/Release/CelestialAtlas.exe"
+          if (!(Test-Path $binary)) { throw "Qt GUI was not produced" }
+          Copy-Item $binary (Join-Path $dist "CelestialAtlas.exe")
+          & windeployqt --release --no-compiler-runtime (Join-Path $dist "CelestialAtlas.exe")
+          if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
+          if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
+          Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
+          Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.2.0-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.2.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-x64
+          path: CelestialAtlas-v0.2.0-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Attempt genuine app screenshot from NASA image (best effort)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $asset = Join-Path $env:RUNNER_TEMP "bluemarble-2048.png"
+          python scripts/fetch_nasa_earth.py --output "$asset"
+          if ($LASTEXITCODE -ne 0) { throw "NASA image download unavailable" }
+          $exe = Join-Path $PWD "dist/CelestialAtlas/CelestialAtlas.exe"
+          $shot = Join-Path $PWD "CelestialAtlas-real-viewport.png"
+          & $exe --texture "$asset" --screenshot "$shot"
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path $shot)) { throw "Interactive OpenGL screenshot unavailable on CI runner" }
+          if ((Get-Item $shot).Length -lt 10000) { throw "Capture size suspiciously small" }
+          Write-Host "Captured application viewport. This is an unmodified program rendering, NOT a generated concept image."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: earth-viewport-screenshot-candidate
+          path: |
+            CelestialAtlas-real-viewport.png
+            CelestialAtlas-real-viewport.png.provenance.json
+          if-no-files-found: ignore
+          retention-days: 30
 
-  release-source:
+  release-v0_2_0:
     needs: [core-linux, gui-windows]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -49,17 +93,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Publish versioned source archive
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-portable-x64
+          path: .
+      - name: Publish immutable v0.2.0 source and portable release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.1.0 >/dev/null 2>&1; then
-            echo "v0.1.0 exists; not replacing prior release"
+          if gh release view v0.2.0 >/dev/null 2>&1; then
+            echo "Version v0.2.0 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          git archive --format=zip --output=CelestialAtlas-v0.1.0-source.zip HEAD
-          gh release create v0.1.0 CelestialAtlas-v0.1.0-source.zip \
+          test -s CelestialAtlas-v0.2.0-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.2.0-source.zip HEAD
+          sha256sum CelestialAtlas-v0.2.0-*.zip > SHA256SUMS.txt
+          gh release create v0.2.0 \
+            CelestialAtlas-v0.2.0-source.zip \
+            CelestialAtlas-v0.2.0-Windows-x64.zip \
+            SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.1.0 — Source Prototype' \
-            --notes 'C++/Qt6/OpenGL Earth prototype. Source archive only; no verified Windows executable yet. Real NASA imagery is downloaded separately. Solar calculations are low precision; CSPICE not integrated.'
+            --title 'Celestial Atlas v0.2.0 — Windows Portable Preview' \
+            --prerelease \
+            --notes 'Native C++20/Qt6/OpenGL 3.3 portable preview, built and tested on GitHub Actions. Requires a compatible GPU and Microsoft Visual C++ Redistributable (x64). Earth imagery is downloaded separately from NASA. Solar geometry remains approximate; CSPICE is not integrated. A successful CI compile does not guarantee GPU rendering on every PC. See README-WINDOWS.md for use and limitations.'

@@ -24,9 +24,8 @@ void EarthViewport::cleanupGL(){
 }
 void EarthViewport::setSolarGeometry(const astro::SolarGeometry& geometry){
  solar_=geometry;
- const double ra=geometry.rightAscensionDeg*toRadians,dec=geometry.declinationDeg*toRadians;
- // X=RA0, +Z=RA90, Y=north pole
- sunWorld_=QVector3D(float(std::cos(dec)*std::cos(ra)),float(std::sin(dec)),float(std::cos(dec)*std::sin(ra)));
+ const auto sun=astro::celestialUnitVector(geometry.rightAscensionDeg,geometry.declinationDeg);
+ sunWorld_=QVector3D(float(sun.x),float(sun.y),float(sun.z));
  update();
 }
 bool EarthViewport::setTextureFile(const QString& path){

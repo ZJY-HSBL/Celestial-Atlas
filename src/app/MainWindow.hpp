@@ -12,6 +12,8 @@ class MainWindow final:public QMainWindow {
  Q_OBJECT
 public:
  explicit MainWindow(QWidget* parent=nullptr);
+ bool loadTextureFromPath(const QString& path);
+ bool captureViewport(const QString& outputPath);
 private:
  void tick();
  void refreshStatus();

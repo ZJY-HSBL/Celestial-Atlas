@@ -2,6 +2,12 @@
 #include "astronomy/SolarGeometry.hpp"
 #include "render/EarthViewport.hpp"
 #include <QComboBox>
+#include <QFileDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QImage>
+#include <QMessageBox>
+#include <QSaveFile>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QFont>
@@ -70,6 +76,24 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
   "太阳方向：低精度近似算法（尚非 JPL 精密星历）\n"
   "地球影像：NASA 多日期卫星拼接，非实时云图\n"
   "大气光照：可视化近似，不是辐射传输模型"),"caution"));
+ auto* snapshot=new QPushButton(QStringLiteral("保存真实渲染截图"));
+ connect(snapshot,&QPushButton::clicked,this,[this]{
+  if(!viewport_->hasObservedTexture()){
+   QMessageBox::warning(this,QStringLiteral("影像未加载"),
+    QStringLiteral("请先下载 NASA Blue Marble 真实卫星拼接影像，不能把无纹理占位画面当成真实地球截图。"));
+   return;
+  }
+  const QString path=QFileDialog::getSaveFileName(this,QStringLiteral("保存真实运行截图"),
+    QStringLiteral("CelestialAtlas-Earth.png"),QStringLiteral("PNG 图像 (*.png)"));
+  if(path.isEmpty())return;
+  if(!captureViewport(path)){
+   QMessageBox::warning(this,QStringLiteral("截图失败"),QStringLiteral("OpenGL 视口截图失败，请检查显卡驱动和路径。"));
+  }else{
+   QMessageBox::information(this,QStringLiteral("截图已保存"),
+    QStringLiteral("真实程序截图与科学来源元数据已保存。"));
+  }
+ });
+ rightLayout->addWidget(snapshot);
  auto* reset=new QPushButton(QStringLiteral("重置观察视角"));
  connect(reset,&QPushButton::clicked,viewport_,&EarthViewport::resetCamera);
  rightLayout->addWidget(reset);
@@ -93,7 +117,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.1.0"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.2.0"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -168,6 +192,30 @@ void MainWindow::refreshStatus(){
  .arg(sun.greenwichMeanSiderealDeg,0,'f',3)
  .arg(sun.subsolarLatitudeDeg,0,'f',3)
  .arg(sun.subsolarLongitudeDeg,0,'f',3));
+}
+bool MainWindow::loadTextureFromPath(const QString& path){
+ if(!viewport_->setTextureFile(path))return false;
+ textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\\n真实观测拼接影像"));
+ return true;
+}
+bool MainWindow::captureViewport(const QString& outputPath){
+ if(!viewport_->isValid()||!viewport_->hasObservedTexture())return false;
+ const QImage pixels=viewport_->grabFramebuffer();
+ if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
+ QJsonObject provenance{
+  {"application","Celestial Atlas 0.2.0"},
+  {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
+  {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
+  {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
+  {"earth_texture_kind","NASA observed multi-date satellite composite, NOT live imagery"},
+  {"solar_geometry","Low-precision approximate solar calculations, NOT JPL CSPICE"}
+ };
+ QSaveFile meta(outputPath+QStringLiteral(".provenance.json"));
+ if(meta.open(QIODevice::WriteOnly)){
+  const QByteArray json=QJsonDocument(provenance).toJson();
+  if(meta.write(json)==json.size())meta.commit();else meta.cancelWriting();
+ }
+ return true;
 }
 void MainWindow::setImageReady(const QString& path,const QString& hash){
  downloadButton_->setEnabled(true);

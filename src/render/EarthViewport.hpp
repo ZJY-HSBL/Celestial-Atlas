@@ -17,6 +17,7 @@ public:
  ~EarthViewport() override;
  void setSolarGeometry(const astro::SolarGeometry& geometry);
  bool setTextureFile(const QString& path);
+ bool hasObservedTexture() const { return texture_ != 0; }
  void resetCamera();
 protected:
  void initializeGL() override;

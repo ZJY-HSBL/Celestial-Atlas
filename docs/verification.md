@@ -1,13 +1,17 @@
-# Verification / 测试状态
+# Verification / 测试与验证状态
 
-Baseline date: 2026-10-17.
+## v0.2.0 planned GitHub Actions checks
 
-- Reference local Linux environment: GNU C++ 14.2, CMake 3.31, Ninja.
-- The original standalone astronomy core built successfully with ATLAS_BUILD_GUI=OFF.
-- One CTest suite passed, covering Julian date, approximate GMST, solar declination at equinox/solstice, subsolar and antipodal solar altitude, and angle normalization.
-- Qt6 developer headers were not present in that environment: the desktop GUI was **not compiled or launched** there.
-- NASA source page was identified but actual image download, image mapping and GPU rendering were **not verified** in that environment.
-- No application screenshot or FPS result is claimed.
-- GitHub Actions additionally attempts Linux core and Windows Qt builds for committed sources; its status must be reviewed separately.
+- Linux: C++20 astro core builds, solar geometry/equinox/solstice tests, inertial-vs-geographic Earth lighting correspondence.
+- Windows: Qt6 + MSVC builds both native GUI and tests, invokes windeployqt, checks qwindows.dll, creates a portable ZIP.
+- Windows CI **attempts** a genuine OpenGL viewport screenshot using original NASA imagery. A GitHub-hosted runner might not offer a usable OpenGL 3.3 context; screenshot generation is best effort, optional, and never replaced with a fabricated image.
+- A candidate screenshot is only considered evidence after examining the resulting rendered pixels and provenance. CI screenshot generation alone is not a substitute for manual runtime QA.
 
-Before a runnable binary release: successful Windows compile, actual GUI launch, measured rendering results, verified Earth texture orientation, checked daylight terminator across several UTC dates, documentation of downloadable NASA image processing, and provenance metadata.
+## Known limits
+
+- No JPL CSPICE in v0.2.0; near-Earth Sun model is approximate, UTC substituted for UT1.
+- NASA Blue Marble is an observed multi-date composite, not a live Earth view.
+- Rendering of a Windows portable executable on a real desktop GPU has not yet been independently certified.
+- No benchmark FPS, validated time-varying cloud fields, or planet-by-planet mission image coverage is claimed.
+
+See README and WINDOWS-PORTABLE.md for use. Scientific sources and license information are kept separate from bundled executable dependencies.

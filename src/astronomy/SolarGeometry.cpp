@@ -10,6 +10,14 @@ double cosDeg(double x){return std::cos(x*d2r);}
 }
 double normalize360(double v){v=std::fmod(v,360.0);return v<0?v+360.0:v;}
 double normalize180(double v){return normalize360(v+180.0)-180.0;}
+UnitVector celestialUnitVector(double rightAscensionDeg,double declinationDeg){
+ const double ra=rightAscensionDeg*d2r,dec=declinationDeg*d2r;
+ return {std::cos(dec)*std::cos(ra),std::sin(dec),std::cos(dec)*std::sin(ra)};
+}
+UnitVector surfaceNormalInertial(double latitudeDeg,double longitudeDeg,double greenwichSiderealDeg){
+ return celestialUnitVector(longitudeDeg+greenwichSiderealDeg,latitudeDeg);
+}
+double dot(const UnitVector& a,const UnitVector& b){return a.x*b.x+a.y*b.y+a.z*b.z;}
 SolarGeometry solarGeometry(std::chrono::system_clock::time_point utc){
  const double seconds=std::chrono::duration<double>(utc.time_since_epoch()).count();
  const double jd=seconds/86400.0+2440587.5;
