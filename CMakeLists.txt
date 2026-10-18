@@ -15,7 +15,7 @@ add_library(atlas_astronomy STATIC
  src/astronomy/SpiceEphemeris.cpp)
 if(ATLAS_ENABLE_CSPICE)
  find_path(CSPICE_INCLUDE_DIR NAMES SpiceUsr.h PATHS "${CSPICE_ROOT}/include" NO_DEFAULT_PATH REQUIRED)
- find_library(CSPICE_LIBRARY NAMES cspice PATHS "${CSPICE_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
+ find_file(CSPICE_LIBRARY NAMES cspice.a cspice.lib PATHS "${CSPICE_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
  target_include_directories(atlas_astronomy PRIVATE "${CSPICE_INCLUDE_DIR}")
  target_link_libraries(atlas_astronomy PUBLIC "${CSPICE_LIBRARY}")
  if(UNIX)
