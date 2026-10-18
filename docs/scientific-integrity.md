@@ -12,3 +12,7 @@
 ## Planned precision migration
 
 Use NAIF CSPICE kernels with explicit kernel manifests (LSK, SPK, PCK, Earth orientation kernels as appropriate) and state whether a computed position is geometric/apparent, specify the frame and corrections, and validate specific times and targets against JPL Horizons. Maintain time-scale conversions and coordinate-frame provenance.
+
+## v0.3 scientific precision boundary
+
+JPL DE442s + NASA NAIF N0067 power Moon/Sun *geometric J2000 states* where the official toolkit is compiled and kernels loaded. The Moon illuminated fraction uses Sun–Moon–Earth geometry from those vectors, not a synthetic phase. The **Earth surface day/night terminator is still a distinct approximate model**. Do not label it CSPICE-grade until rigorous Earth orientation and time-frame conversion are implemented and validated. Windows default build does not ship CSPICE: no made-up lunar phase values when unavailable.

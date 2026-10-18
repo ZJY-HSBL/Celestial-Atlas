@@ -16,7 +16,7 @@ int main(int argc,char* argv[]){
  QApplication app(argc,argv);
  QCoreApplication::setOrganizationName("CelestialAtlas");
  QCoreApplication::setApplicationName("CelestialAtlas");
- QCoreApplication::setApplicationVersion("0.2.2");
+ QCoreApplication::setApplicationVersion("0.3.0");
  QCommandLineParser parser;
  parser.setApplicationDescription("Celestial Atlas earth visualization and scientific capture");
  parser.addHelpOption();

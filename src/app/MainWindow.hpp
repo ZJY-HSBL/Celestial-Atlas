@@ -1,5 +1,6 @@
 #pragma once
 #include "app/TextureDownloader.hpp"
+#include "astronomy/SpiceEphemeris.hpp"
 #include <QDateTimeEdit>
 #include <QElapsedTimer>
 #include <QLabel>
@@ -23,6 +24,8 @@ private:
  EarthViewport* viewport_=nullptr;
  QDateTimeEdit* timeEdit_=nullptr;
  QLabel* solarInfo_=nullptr;
+ QLabel* moonInfo_=nullptr;
+ astro::SpiceEphemeris spice_;
  QLabel* textureInfo_=nullptr;
  QLabel* status_=nullptr;
  QPushButton* downloadButton_=nullptr;

@@ -11,6 +11,10 @@
 #include <QSaveFile>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QDir>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QFont>
 #include <QHBoxLayout>
 #include <QSignalBlocker>
@@ -71,6 +75,14 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  rightLayout->addWidget(label(QStringLiteral("太阳光照与地球旋转"),"section"));
  solarInfo_=label(QStringLiteral("正在计算..."),"data");
  rightLayout->addWidget(solarInfo_);
+ rightLayout->addWidget(label(QStringLiteral("MOON / 地月系统"),"section"));
+ moonInfo_=label(QStringLiteral("精密月相尚未加载"),"data");
+ rightLayout->addWidget(moonInfo_);
+ auto* moonPhoto=new QPushButton(QStringLiteral("NASA LRO 月球真实观测影像"));
+ connect(moonPhoto,&QPushButton::clicked,this,[]{
+  QDesktopServices::openUrl(QUrl(QStringLiteral("https://science.nasa.gov/resource/moon-mosaic/")));
+ });
+ rightLayout->addWidget(moonPhoto);
  rightLayout->addStretch();
  rightLayout->addWidget(label(QStringLiteral(
   "SCIENCE DISCLOSURE\n"
@@ -134,7 +146,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.2.2"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.3.0"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -182,6 +194,20 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
   downloadButton_->setText(QStringLiteral("更新 NASA 影像"));
  }
  connect(&frameTimer_,&QTimer::timeout,this,&MainWindow::tick);
+ {
+  QString kernelDir=qEnvironmentVariable("ATLAS_SPICE_KERNEL_DIR");
+  if(kernelDir.isEmpty())
+   kernelDir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+QStringLiteral("/kernels");
+  std::string kernelError;
+  if(spice_.loadKernels(QDir(kernelDir).filePath(QStringLiteral("naif0012.tls")).toStdString(),
+      QDir(kernelDir).filePath(QStringLiteral("de442s.bsp")).toStdString(),kernelError)){
+   moonInfo_->setText(QStringLiteral("JPL DE442s 精密星历已加载"));
+  } else if(astro::SpiceEphemeris::builtWithSpice()){
+   moonInfo_->setText(QStringLiteral("需要 NASA 官方 naif0012.tls / de442s.bsp 内核。\n当前月相不可用。"));
+  }else{
+   moonInfo_->setText(QStringLiteral("此 Windows 预览包未链接 CSPICE。\n未提供月相数值，避免虚构数据。"));
+  }
+ }
  frameTimer_.setInterval(16);elapsed_.start();frameTimer_.start();refreshStatus();
 }
 void MainWindow::tick(){
@@ -209,6 +235,25 @@ void MainWindow::refreshStatus(){
  .arg(sun.greenwichMeanSiderealDeg,0,'f',3)
  .arg(sun.subsolarLatitudeDeg,0,'f',3)
  .arg(sun.subsolarLongitudeDeg,0,'f',3));
+ if(spice_.ready()){
+  astro::SolarLunarSample result;
+  std::string error;
+  if(spice_.sample(timestamp,result,error)){
+   moonInfo_->setText(QStringLiteral(
+    "数据：JPL DE442s / NAIF CSPICE\n"
+    "月面照明比例  %1%\n"
+    "地月距离      %2 km\n"
+    "日地距离      %3 km\n"
+    "月球相位角     %4°\n"
+    "参考系 J2000 / 几何位置，未修正光行时")
+    .arg(result.lunar.illuminatedFraction*100.0,0,'f',2)
+    .arg(result.lunar.moonDistanceKm,0,'f',0)
+    .arg(result.lunar.sunDistanceKm,0,'f',0)
+    .arg(result.lunar.phaseAngleDeg,0,'f',2));
+  }else{
+   moonInfo_->setText(QStringLiteral("JPL 星历计算失败：%1").arg(QString::fromStdString(error)));
+  }
+ }
 }
 void MainWindow::focusDaylight(){viewport_->focusDaylight();}
 bool MainWindow::loadTextureFromPath(const QString& path){
@@ -221,12 +266,13 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.2.2"},
+  {"application","Celestial Atlas 0.3.0"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
   {"earth_texture_kind","Observed NASA Blue Marble multi-date mosaic, NOT a live Earth image"},
-  {"solar_geometry","Low-precision solar model, NOT CSPICE"}
+  {"solar_geometry","Low-precision Sun illumination, NOT SPICE Earth orientation"},
+  {"lunar_ephemeris",spice_.ready()?"JPL DE442s geometric J2000 states via NASA CSPICE":"unavailable"}
  };
  QSaveFile meta(outputPath+QStringLiteral(".provenance.json"));
  if(meta.open(QIODevice::WriteOnly)){
@@ -240,12 +286,13 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.2.2"},
+  {"application","Celestial Atlas 0.3.0"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
   {"earth_texture_kind","NASA observed multi-date satellite composite, NOT live imagery"},
-  {"solar_geometry","Low-precision approximate solar calculations, NOT JPL CSPICE"}
+  {"solar_geometry","Low-precision solar lighting, NOT SPICE Earth orientation"},
+  {"lunar_ephemeris",spice_.ready()?"JPL DE442s geometric J2000 states via NASA CSPICE":"unavailable"}
  };
  QSaveFile meta(outputPath+QStringLiteral(".provenance.json"));
  if(meta.open(QIODevice::WriteOnly)){

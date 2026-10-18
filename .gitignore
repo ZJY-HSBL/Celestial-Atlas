@@ -12,3 +12,8 @@ __pycache__/
 *.fits
 *.fit
 *.parquet
+
+/data/kernels/
+*.bsp
+*.tls
+/cspice/

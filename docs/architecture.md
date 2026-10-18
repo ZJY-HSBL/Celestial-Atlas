@@ -1,6 +1,6 @@
 # Architecture / 技术架构
 
-- **astronomy**: dependency-free C++20 numerical core. The implemented solar model is an approximation, not a precision ephemeris.
+- **astronomy**: C++20 numerical core, including geometry-only Moon phase tests and optional official CSPICE SPK/LSK adapter. The implemented solar model is an approximation, not a precision ephemeris.
 - **render**: Qt QOpenGLWidget owns 3D Earth mesh, camera, buffers, GLSL shaders, texture. OpenGL resources are modified in the owning GUI context only.
 - **app**: Qt desktop workspace, simulated UTC clock, target panel and asynchronous NASA satellite-image downloader.
 - **scripts**: Python used offline for provenance-aware downloads and validation; not required to launch the native executable.

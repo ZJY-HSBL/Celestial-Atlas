@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure science core
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DATLAS_BUILD_GUI=OFF
-      - name: Compile C++20
+      - name: Compile C++20 (CSPICE disabled baseline)
         run: cmake --build build --parallel
       - name: Run geometry/solar tests
         run: ctest --test-dir build --output-on-failure
@@ -53,12 +53,12 @@ jobs:
           if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
           Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
           Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
-          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.2.2-Windows-x64.zip") -Force
-          Get-FileHash "CelestialAtlas-v0.2.2-Windows-x64.zip" -Algorithm SHA256 | Format-List
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.3.0-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.3.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable-x64
-          path: CelestialAtlas-v0.2.2-Windows-x64.zip
+          path: CelestialAtlas-v0.3.0-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -73,12 +73,29 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             qt6-base-dev libqt6opengl6-dev xvfb xauth \
             libgl1-mesa-dri libglx-mesa0 libxcb-cursor0 python3-pil fonts-noto-cjk
-      - name: Compile Linux GUI (not only numerical core)
+      - name: Download official NASA NAIF N0067 toolkit and JPL DE442s
         shell: bash
         run: |
-          cmake -S . -B build-gui -DCMAKE_BUILD_TYPE=Release -DATLAS_BUILD_GUI=ON
+          curl --fail --location --retry 3 --connect-timeout 30 \
+            "https://naif.jpl.nasa.gov/pub/naif/toolkit/C/PC_Linux_GCC_64bit/packages/cspice.tar.Z" \
+            --output "$RUNNER_TEMP/cspice.tar.Z"
+          tar -xf "$RUNNER_TEMP/cspice.tar.Z" -C "$RUNNER_TEMP"
+          test -f "$RUNNER_TEMP/cspice/include/SpiceUsr.h"
+          test -f "$RUNNER_TEMP/cspice/lib/cspice.a"
+          /usr/bin/python3 scripts/fetch_spice_kernels.py --output "$RUNNER_TEMP/kernels"
+          test -s "$RUNNER_TEMP/kernels/naif0012.tls"
+          test -s "$RUNNER_TEMP/kernels/de442s.bsp"
+      - name: Compile Linux GUI with official CSPICE
+        shell: bash
+        run: |
+          cmake -S . -B build-gui -DCMAKE_BUILD_TYPE=Release \
+            -DATLAS_BUILD_GUI=ON -DATLAS_ENABLE_CSPICE=ON \
+            -DCSPICE_ROOT="$RUNNER_TEMP/cspice" \
+            -DATLAS_SPICE_LSK="$RUNNER_TEMP/kernels/naif0012.tls" \
+            -DATLAS_SPICE_SPK="$RUNNER_TEMP/kernels/de442s.bsp"
           cmake --build build-gui --parallel 2
           test -x build-gui/CelestialAtlas
+          ctest --test-dir build-gui --output-on-failure
       - name: Fetch verified NASA Blue Marble satellite mosaic
         shell: bash
         run: |
@@ -86,7 +103,8 @@ jobs:
       - name: Run real C++ OpenGL renderer under Xvfb/Mesa
         shell: bash
         run: |
-          env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 QT_QPA_PLATFORM=xcb \
+          env ATLAS_SPICE_KERNEL_DIR="$RUNNER_TEMP/kernels" \
+            LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 QT_QPA_PLATFORM=xcb \
             xvfb-run -a -s "-screen 0 1280x900x24" \
             ./build-gui/CelestialAtlas \
               --texture "$RUNNER_TEMP/bluemarble-2048.png" \
@@ -96,6 +114,14 @@ jobs:
           test -s CelestialAtlas-real-viewport.png.provenance.json
           test -s CelestialAtlas-real-workbench.png
           test -s CelestialAtlas-real-workbench.png.provenance.json
+          /usr/bin/python3 - <<'PY'
+          import json
+          for file in ("CelestialAtlas-real-workbench.png.provenance.json",
+                       "CelestialAtlas-real-viewport.png.provenance.json"):
+              record=json.load(open(file, encoding="utf-8"))
+              assert record["lunar_ephemeris"].startswith("JPL DE442s"), record
+          print("Actual rendered screenshots contain verified CSPICE data provenance")
+          PY
       - name: Validate resulting bitmap is nonblank and contains a textured Earth
         shell: bash
         run: |
@@ -125,7 +151,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  release-v0_2_2:
+  release-v0_3_0:
     needs: [core-linux, gui-windows, render-linux]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -143,29 +169,29 @@ jobs:
         with:
           name: verified-earth-render
           path: .
-      - name: Publish immutable v0.2.2 source, portable and real screenshot
+      - name: Publish immutable v0.3.0 source, portable and real screenshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.2.2 >/dev/null 2>&1; then
-            echo "Version v0.2.2 already published. Refusing to overwrite an immutable release."
+          if gh release view v0.3.0 >/dev/null 2>&1; then
+            echo "Version v0.3.0 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          test -s CelestialAtlas-v0.2.2-Windows-x64.zip
-          git archive --format=zip --output=CelestialAtlas-v0.2.2-source.zip HEAD
+          test -s CelestialAtlas-v0.3.0-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.3.0-source.zip HEAD
           test -s CelestialAtlas-real-viewport.png
           test -s CelestialAtlas-real-workbench.png
-          sha256sum CelestialAtlas-v0.2.2-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
-          gh release create v0.2.2 \
-            CelestialAtlas-v0.2.2-source.zip \
-            CelestialAtlas-v0.2.2-Windows-x64.zip \
+          sha256sum CelestialAtlas-v0.3.0-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
+          gh release create v0.3.0 \
+            CelestialAtlas-v0.3.0-source.zip \
+            CelestialAtlas-v0.3.0-Windows-x64.zip \
             SHA256SUMS.txt \
             CelestialAtlas-real-viewport.png \
             CelestialAtlas-real-viewport.png.provenance.json \
             CelestialAtlas-real-workbench.png \
             CelestialAtlas-real-workbench.png.provenance.json \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.2.2 — Windows Portable + Verified Earth & Workspace Renders' \
+            --title 'Celestial Atlas v0.3.0 — CSPICE Moon Geometry and Verified Earth Renders' \
             --prerelease \
-            --notes 'Native C++20/Qt6/OpenGL 3.3 portable preview. Linux Mesa CI ran the actual Earth renderer with NASA imagery and validated its PNG export. Windows portable package built and tested on GitHub Actions. Requires a compatible GPU and Microsoft Visual C++ Redistributable (x64). Earth imagery is downloaded separately from NASA. Solar geometry remains approximate; CSPICE is not integrated. A successful CI compile does not guarantee GPU rendering on every PC. See README-WINDOWS.md for use and limitations.'
+            --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads the official NASA NAIF N0067 CSPICE toolkit plus JPL DE442s/LSK kernels, runs real Moon-phase and eclipse-epoch integration tests, renders with authentic NASA Earth imagery and exports verified PNGs. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'
