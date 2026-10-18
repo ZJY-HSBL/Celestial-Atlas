@@ -17,7 +17,11 @@ public:
  ~EarthViewport() override;
  void setSolarGeometry(const astro::SolarGeometry& geometry);
  bool setTextureFile(const QString& path);
- bool hasObservedTexture() const { return texture_ != 0; }
+ enum class Scene { Earth, Moon };
+ void setScene(Scene nextScene);
+ Scene scene() const { return scene_; }
+ bool setMoonTextureFile(const QString& path);
+ bool hasObservedTexture() const { return scene_==Scene::Earth ? texture_!=0 : moonTexture_!=0; }
  void resetCamera();
  void focusDaylight();
 protected:
@@ -31,12 +35,17 @@ private:
  struct Vertex{float px,py,pz,nx,ny,nz,u,v;};
  void buildSphere();
  bool reloadTexture();
+ bool reloadMoonTexture();
+ bool uploadImageTexture(const QString& path, GLuint& target);
  void cleanupGL();
  QOpenGLShaderProgram shader_;
  QOpenGLBuffer vertices_{QOpenGLBuffer::VertexBuffer},indices_{QOpenGLBuffer::IndexBuffer};
  QOpenGLVertexArrayObject vao_;
  int indexCount_=0;
  GLuint texture_=0;
+ GLuint moonTexture_=0;
+ QString moonTexturePath_;
+ Scene scene_=Scene::Earth;
  bool glInitialized_=false;
  QString texturePath_;
  astro::SolarGeometry solar_{};

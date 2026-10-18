@@ -9,6 +9,8 @@
 #include <QPixmap>
 #include <QMessageBox>
 #include <QSaveFile>
+#include <QScrollArea>
+#include <QFrame>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -30,7 +32,7 @@ QLabel* label(const QString& text,const char* name=nullptr){
  return l;
 }
 }
-MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
+MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),moonDownloader_(this,TextureDownloader::Body::Moon){
  setWindowTitle(QStringLiteral("Celestial Atlas | 科学宇宙探索"));
  resize(1240,790);setMinimumSize(860,540);
  auto* page=new QWidget(this);
@@ -39,7 +41,13 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  auto* header=new QHBoxLayout;
  header->addWidget(label(QStringLiteral("✦  CELESTIAL ATLAS    /    地球科学观测"),"heading"));
  header->addStretch();
- downloadButton_=new QPushButton(QStringLiteral("下载 NASA 真实影像"));
+ auto* sceneChoice=new QComboBox;
+ sceneSelector_=sceneChoice;
+ sceneChoice->addItem(QStringLiteral("地球 / Earth"));
+ sceneChoice->addItem(QStringLiteral("月球 / Moon Survey"));
+ sceneChoice->setToolTip(QStringLiteral("月球模式：真实 LRO 全球测绘影像，但光源为展示灯光，非月相计算"));
+ header->addWidget(sceneChoice);
+ downloadButton_=new QPushButton(QStringLiteral("下载 NASA 地球真实影像"));
  header->addWidget(downloadButton_);
  root->addLayout(header);
  auto* workspace=new QHBoxLayout;
@@ -68,8 +76,10 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  auto* rightLayout=new QVBoxLayout(right);
  rightLayout->setContentsMargins(16,18,16,18);rightLayout->setSpacing(12);
  rightLayout->addWidget(label(QStringLiteral("SELECTED BODY"),"section"));
- rightLayout->addWidget(label(QStringLiteral("地球  /  EARTH"),"title"));
- rightLayout->addWidget(label(QStringLiteral("太阳系 · 第三颗行星"),"detail"));
+ selectedName_=label(QStringLiteral("地球  /  EARTH"),"title");
+ rightLayout->addWidget(selectedName_);
+ selectedSubtitle_=label(QStringLiteral("太阳系 · 第三颗行星"),"detail");
+ rightLayout->addWidget(selectedSubtitle_);
  rightLayout->addSpacing(12);
  rightLayout->addWidget(label(QStringLiteral("平均半径    6,371 km"),"data"));
  rightLayout->addWidget(label(QStringLiteral("太阳光照与地球旋转"),"section"));
@@ -78,11 +88,25 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  rightLayout->addWidget(label(QStringLiteral("MOON / 地月系统"),"section"));
  moonInfo_=label(QStringLiteral("精密月相尚未加载"),"data");
  rightLayout->addWidget(moonInfo_);
+ lunarMapStatus_=label(QStringLiteral("月球全球 LRO 影像未安装"),"detail");
+ rightLayout->addWidget(lunarMapStatus_);
  auto* moonPhoto=new QPushButton(QStringLiteral("NASA LRO 月球真实观测影像"));
  connect(moonPhoto,&QPushButton::clicked,this,[]{
   QDesktopServices::openUrl(QUrl(QStringLiteral("https://science.nasa.gov/resource/moon-mosaic/")));
  });
  rightLayout->addWidget(moonPhoto);
+ auto* downloadMoon=new QPushButton(QStringLiteral("下载 NASA LRO 全球月面影像"));
+ connect(downloadMoon,&QPushButton::clicked,&moonDownloader_,&TextureDownloader::download);
+ rightLayout->addWidget(downloadMoon);
+ connect(&moonDownloader_,&TextureDownloader::ready,this,[this,downloadMoon](const QString& path,const QString& hash){
+  downloadMoon->setText(QStringLiteral("更新 NASA LRO 月面影像"));
+  if(viewport_->setMoonTextureFile(path)){
+   lunarMapStatus_->setText(QStringLiteral("NASA LROC 2048×1024\nSHA-256: %1…").arg(hash.left(12)));
+  }else lunarMapStatus_->setText(QStringLiteral("LRO 影像下载成功但 OpenGL 加载失败"));
+ });
+ connect(&moonDownloader_,&TextureDownloader::failed,this,[this](const QString& error){
+  lunarMapStatus_->setText(error);
+ });
  rightLayout->addStretch();
  rightLayout->addWidget(label(QStringLiteral(
   "SCIENCE DISCLOSURE\n"
@@ -92,6 +116,15 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  auto* focus=new QPushButton(QStringLiteral("聚焦当前地球白昼面"));
  connect(focus,&QPushButton::clicked,viewport_,&EarthViewport::focusDaylight);
  rightLayout->addWidget(focus);
+ connect(sceneChoice,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,focus](int value){
+  const bool moon=value==1;
+  viewport_->setScene(moon?EarthViewport::Scene::Moon:EarthViewport::Scene::Earth);
+  selectedName_->setText(moon?QStringLiteral("月球  /  MOON"):QStringLiteral("地球  /  EARTH"));
+  selectedSubtitle_->setText(moon?QStringLiteral("天然卫星 · NASA LRO 全球测绘影像"):QStringLiteral("太阳系 · 第三颗行星"));
+  downloadButton_->setText(moon?QStringLiteral("下载 NASA LRO 月面影像"):QStringLiteral("下载 NASA 地球真实影像"));
+  focus->setText(moon?QStringLiteral("月球正面 / 重置视角"):QStringLiteral("聚焦当前地球白昼面"));
+  textureInfo_->setText(moon?QStringLiteral("LRO 月面地图：完整全球观测拼接，极区补充资料"):QStringLiteral("NASA Blue Marble 真实地球资料"));
+ });
  auto* snapshot=new QPushButton(QStringLiteral("保存真实渲染截图"));
  connect(snapshot,&QPushButton::clicked,this,[this]{
   if(!viewport_->hasObservedTexture()){
@@ -126,7 +159,13 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  auto* reset=new QPushButton(QStringLiteral("重置观察视角"));
  connect(reset,&QPushButton::clicked,viewport_,&EarthViewport::resetCamera);
  rightLayout->addWidget(reset);
- workspace->addWidget(right);
+ auto* rightScroll=new QScrollArea;
+ rightScroll->setFrameShape(QFrame::NoFrame);
+ rightScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+ rightScroll->setWidgetResizable(true);
+ rightScroll->setFixedWidth(289);
+ rightScroll->setWidget(right);
+ workspace->addWidget(rightScroll);
  root->addLayout(workspace,1);
  auto* footer=new QHBoxLayout;
  footer->setSpacing(12);
@@ -146,7 +185,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.3.0"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.4.0"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -178,7 +217,10 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  connect(speed,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,speed](int i){
   simulationSpeed_=speed->itemData(i).toDouble();
  });
- connect(downloadButton_,&QPushButton::clicked,&downloader_,&TextureDownloader::download);
+ connect(downloadButton_,&QPushButton::clicked,this,[this]{
+  if(viewport_->scene()==EarthViewport::Scene::Moon)moonDownloader_.download();
+  else downloader_.download();
+ });
  connect(&downloader_,&TextureDownloader::ready,this,&MainWindow::setImageReady);
  connect(&downloader_,&TextureDownloader::failed,this,[this](const QString& error){
   downloadButton_->setEnabled(true);
@@ -188,6 +230,9 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this){
  connect(&downloader_,&TextureDownloader::progress,this,[this](qint64 received,qint64 total){
   if(total>0)downloadButton_->setText(QStringLiteral("影像下载 %1%").arg(100*received/total));
  });
+ const QString lunarCache=TextureDownloader::moonExpectedImagePath();
+ if(QFileInfo::exists(lunarCache)&&viewport_->setMoonTextureFile(lunarCache))
+  lunarMapStatus_->setText(QStringLiteral("NASA LROC 2K 月球全球影像已缓存"));
  const QString cached=TextureDownloader::expectedImagePath();
  if(QFileInfo::exists(cached)&&viewport_->setTextureFile(cached)){
   textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\n本地缓存已加载"));
@@ -256,6 +301,10 @@ void MainWindow::refreshStatus(){
  }
 }
 void MainWindow::focusDaylight(){viewport_->focusDaylight();}
+bool MainWindow::loadMoonTextureFromPath(const QString& path){
+ return viewport_->setMoonTextureFile(path);
+}
+void MainWindow::selectMoonScene(){sceneSelector_->setCurrentIndex(1);}
 bool MainWindow::loadTextureFromPath(const QString& path){
  if(!viewport_->setTextureFile(path))return false;
  textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\n真实观测拼接影像"));
@@ -266,10 +315,14 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.3.0"},
+  {"application","Celestial Atlas 0.4.0"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
+  {"rendered_body",viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
+  {"actual_render_texture",viewport_->scene()==EarthViewport::Scene::Moon?
+   "https://svs.gsfc.nasa.gov/4720/":"https://svs.gsfc.nasa.gov/2915/"},
+  {"moon_visualization_note","LROC 2025 global processed observed composite; display-studio lighting, not orbital position, phase, or libration"},
   {"earth_texture_kind","Observed NASA Blue Marble multi-date mosaic, NOT a live Earth image"},
   {"solar_geometry","Low-precision Sun illumination, NOT SPICE Earth orientation"},
   {"lunar_ephemeris",spice_.ready()?"JPL DE442s geometric J2000 states via NASA CSPICE":"unavailable"}
@@ -286,10 +339,14 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.3.0"},
+  {"application","Celestial Atlas 0.4.0"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
+  {"rendered_body",viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
+  {"actual_render_texture",viewport_->scene()==EarthViewport::Scene::Moon?
+   "https://svs.gsfc.nasa.gov/4720/":"https://svs.gsfc.nasa.gov/2915/"},
+  {"moon_visualization_note","LROC 2025 global processed observed composite; display-studio lighting, not orbital position, phase, or libration"},
   {"earth_texture_kind","NASA observed multi-date satellite composite, NOT live imagery"},
   {"solar_geometry","Low-precision solar lighting, NOT SPICE Earth orientation"},
   {"lunar_ephemeris",spice_.ready()?"JPL DE442s geometric J2000 states via NASA CSPICE":"unavailable"}

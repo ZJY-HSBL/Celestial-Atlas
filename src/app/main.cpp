@@ -16,7 +16,7 @@ int main(int argc,char* argv[]){
  QApplication app(argc,argv);
  QCoreApplication::setOrganizationName("CelestialAtlas");
  QCoreApplication::setApplicationName("CelestialAtlas");
- QCoreApplication::setApplicationVersion("0.3.0");
+ QCoreApplication::setApplicationVersion("0.4.0");
  QCommandLineParser parser;
  parser.setApplicationDescription("Celestial Atlas earth visualization and scientific capture");
  parser.addHelpOption();
@@ -24,10 +24,15 @@ int main(int argc,char* argv[]){
  QCommandLineOption textureOpt({"t","texture"},"NASA Blue Marble PNG file path (2048x1024)","path");
  QCommandLineOption captureOpt({"s","screenshot"},"Capture actual OpenGL viewport PNG then exit","path");
  QCommandLineOption workbenchOpt({"w","workbench-screenshot"},"Capture entire actual Qt workspace PNG then exit","path");
- parser.addOption(textureOpt);parser.addOption(captureOpt);parser.addOption(workbenchOpt);
+ QCommandLineOption moonTextureOpt("moon-texture","NASA LROC 2048x1024 global texture JPEG path","path");
+ QCommandLineOption sceneOpt("scene","Select 'earth' or 'moon' before capture","body");
+ parser.addOption(textureOpt);parser.addOption(moonTextureOpt);
+ parser.addOption(sceneOpt);parser.addOption(captureOpt);parser.addOption(workbenchOpt);
  parser.process(app);
  atlas::MainWindow window;
  if(parser.isSet(textureOpt) && !window.loadTextureFromPath(parser.value(textureOpt)))return 3;
+ if(parser.isSet(moonTextureOpt) && !window.loadMoonTextureFromPath(parser.value(moonTextureOpt)))return 5;
+ if(parser.value(sceneOpt).toLower()=="moon")window.selectMoonScene();
  window.show();
  if(parser.isSet(captureOpt)||parser.isSet(workbenchOpt)){
   QTimer::singleShot(1200,&app,[&]{

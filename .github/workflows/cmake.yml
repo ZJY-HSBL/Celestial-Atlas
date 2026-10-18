@@ -53,12 +53,12 @@ jobs:
           if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
           Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
           Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
-          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.3.0-Windows-x64.zip") -Force
-          Get-FileHash "CelestialAtlas-v0.3.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.4.0-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.4.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable-x64
-          path: CelestialAtlas-v0.3.0-Windows-x64.zip
+          path: CelestialAtlas-v0.4.0-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -100,6 +100,11 @@ jobs:
         shell: bash
         run: |
           /usr/bin/python3 scripts/fetch_nasa_earth.py --output "$RUNNER_TEMP/bluemarble-2048.png"
+      - name: Fetch authentic NASA LRO global Moon mosaic
+        shell: bash
+        run: |
+          /usr/bin/python3 scripts/fetch_nasa_moon.py --output "$RUNNER_TEMP/lroc_color_2k.jpg"
+          test -s "$RUNNER_TEMP/lroc_color_2k.jpg"
       - name: Run real C++ OpenGL renderer under Xvfb/Mesa
         shell: bash
         run: |
@@ -114,8 +119,18 @@ jobs:
           test -s CelestialAtlas-real-viewport.png.provenance.json
           test -s CelestialAtlas-real-workbench.png
           test -s CelestialAtlas-real-workbench.png.provenance.json
+          env ATLAS_SPICE_KERNEL_DIR="$RUNNER_TEMP/kernels" \
+            LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 QT_QPA_PLATFORM=xcb \
+            xvfb-run -a -s "-screen 0 1280x900x24" \
+            ./build-gui/CelestialAtlas \
+              --scene moon --moon-texture "$RUNNER_TEMP/lroc_color_2k.jpg" \
+              --workbench-screenshot "$PWD/CelestialAtlas-real-moon-workbench.png"
+          test -s CelestialAtlas-real-moon-workbench.png
+          test -s CelestialAtlas-real-moon-workbench.png.provenance.json
           /usr/bin/python3 - <<'PY'
           import json
+          moon=json.load(open("CelestialAtlas-real-moon-workbench.png.provenance.json",encoding="utf-8"))
+          assert moon["rendered_body"]=="Moon" and "4720" in moon["actual_render_texture"],moon
           for file in ("CelestialAtlas-real-workbench.png.provenance.json",
                        "CelestialAtlas-real-viewport.png.provenance.json"):
               record=json.load(open(file, encoding="utf-8"))
@@ -139,6 +154,13 @@ jobs:
               assert bright > 650, f"No rendered image in {filename}: bright={bright}"
               assert blue > 150, f"Observed blue Earth not visible in {filename}: blue={blue}"
               print(f"Actual C++/Qt rendering {filename} {width}x{height}, {p.stat().st_size} bytes; visible={bright}, blue={blue}")
+          moon=Path("CelestialAtlas-real-moon-workbench.png")
+          lunar=Image.open(moon).convert("RGB")
+          assert lunar.size[0]>=1000 and lunar.size[1]>=500,"Moon desktop screenshot dimensions"
+          sampled=list(lunar.resize((160,160)).getdata())
+          neutral=sum(55<max(rgb)<235 and max(rgb)-min(rgb)<45 for rgb in sampled)
+          assert neutral>220, f"Missing gray lunar observed features: neutral={neutral}"
+          print(f"Authentic Moon desktop preview: {moon.stat().st_size} bytes, gray features {neutral}")
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -148,10 +170,12 @@ jobs:
             CelestialAtlas-real-viewport.png.provenance.json
             CelestialAtlas-real-workbench.png
             CelestialAtlas-real-workbench.png.provenance.json
+            CelestialAtlas-real-moon-workbench.png
+            CelestialAtlas-real-moon-workbench.png.provenance.json
           if-no-files-found: error
           retention-days: 30
 
-  release-v0_3_0:
+  release-v0_4_0:
     needs: [core-linux, gui-windows, render-linux]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -169,29 +193,32 @@ jobs:
         with:
           name: verified-earth-render
           path: .
-      - name: Publish immutable v0.3.0 source, portable and real screenshot
+      - name: Publish immutable v0.4.0 source, portable and real screenshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.3.0 >/dev/null 2>&1; then
-            echo "Version v0.3.0 already published. Refusing to overwrite an immutable release."
+          if gh release view v0.4.0 >/dev/null 2>&1; then
+            echo "Version v0.4.0 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          test -s CelestialAtlas-v0.3.0-Windows-x64.zip
-          git archive --format=zip --output=CelestialAtlas-v0.3.0-source.zip HEAD
+          test -s CelestialAtlas-v0.4.0-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.4.0-source.zip HEAD
           test -s CelestialAtlas-real-viewport.png
           test -s CelestialAtlas-real-workbench.png
-          sha256sum CelestialAtlas-v0.3.0-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
-          gh release create v0.3.0 \
-            CelestialAtlas-v0.3.0-source.zip \
-            CelestialAtlas-v0.3.0-Windows-x64.zip \
+          test -s CelestialAtlas-real-moon-workbench.png
+          sha256sum CelestialAtlas-v0.4.0-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
+          gh release create v0.4.0 \
+            CelestialAtlas-v0.4.0-source.zip \
+            CelestialAtlas-v0.4.0-Windows-x64.zip \
             SHA256SUMS.txt \
             CelestialAtlas-real-viewport.png \
             CelestialAtlas-real-viewport.png.provenance.json \
             CelestialAtlas-real-workbench.png \
             CelestialAtlas-real-workbench.png.provenance.json \
+            CelestialAtlas-real-moon-workbench.png \
+            CelestialAtlas-real-moon-workbench.png.provenance.json \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.3.0 — CSPICE Moon Geometry and Verified Earth Renders' \
+            --title 'Celestial Atlas v0.4.0 — LRO Moon Globe + Verified Earth and Moon Renders' \
             --prerelease \
-            --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads the official NASA NAIF N0067 CSPICE toolkit plus JPL DE442s/LSK kernels, runs real Moon-phase and eclipse-epoch integration tests, renders with authentic NASA Earth imagery and exports verified PNGs. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'
+            --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads official NASA NAIF CSPICE/JPL ephemerides and real LROC LRO lunar and Blue Marble Earth mosaics. Both scenes render actual OpenGL screenshots with source provenance; numerical Moon-phase and eclipse-epoch tests still use official kernels. Moon globe lighting is fixed studio lighting, NOT a time-correct Moon phase. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'

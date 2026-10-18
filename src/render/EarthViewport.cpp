@@ -20,6 +20,7 @@ EarthViewport::~EarthViewport(){
 }
 void EarthViewport::cleanupGL(){
  if(texture_){glDeleteTextures(1,&texture_);texture_=0;}
+ if(moonTexture_){glDeleteTextures(1,&moonTexture_);moonTexture_=0;}
  vao_.destroy();vertices_.destroy();indices_.destroy();glInitialized_=false;
 }
 void EarthViewport::setSolarGeometry(const astro::SolarGeometry& geometry){
@@ -35,7 +36,24 @@ bool EarthViewport::setTextureFile(const QString& path){
  if(glInitialized_){makeCurrent();bool ok=reloadTexture();doneCurrent();update();return ok;}
  return true;
 }
+void EarthViewport::setScene(Scene scene){
+ scene_=scene;
+ if(scene_==Scene::Moon){
+  // Moon survey globe: camera faces mean near side, fixed body orientation.
+  // Studio lighting is intentionally NOT an observed lunar phase or libration.
+  yaw_=0.0f;pitch_=12.0f;radius_=3.65f;
+ }else{resetCamera();}
+ update();
+}
+bool EarthViewport::setMoonTextureFile(const QString& path){
+ QImage check(path);
+ if(check.isNull()||check.size()!=QSize(2048,1024))return false;
+ moonTexturePath_=path;
+ if(glInitialized_){makeCurrent();bool ok=reloadMoonTexture();doneCurrent();update();return ok;}
+ return true;
+}
 void EarthViewport::focusDaylight(){
+ if(scene_==Scene::Moon){yaw_=0.0f;pitch_=12.0f;radius_=3.65f;update();return;}
  const float pi=3.14159265358979323846f;
  yaw_=std::atan2(sunWorld_.z(),sunWorld_.x())*180.0f/pi;
  pitch_=std::asin(std::clamp(sunWorld_.y(),-1.0f,1.0f))*180.0f/pi;
@@ -58,6 +76,7 @@ void EarthViewport::initializeGL(){
  buildSphere();
  glInitialized_=true;
  if(!texturePath_.isEmpty())reloadTexture();
+ if(!moonTexturePath_.isEmpty())reloadMoonTexture();
 }
 void EarthViewport::buildSphere(){
  constexpr int lonSteps=144,latSteps=72;
@@ -90,13 +109,12 @@ void EarthViewport::buildSphere(){
  shader_.release();
  vao_.release();indices_.release();vertices_.release();
 }
-bool EarthViewport::reloadTexture(){
- if(!glInitialized_||texturePath_.isEmpty())return false;
- QImage image(texturePath_);
+bool EarthViewport::uploadImageTexture(const QString& path,GLuint& target){
+ QImage image(path);
  if(image.isNull()||image.size()!=QSize(2048,1024))return false;
  image=image.convertToFormat(QImage::Format_RGBA8888).mirrored(false,true);
- if(texture_)glDeleteTextures(1,&texture_);
- glGenTextures(1,&texture_);glBindTexture(GL_TEXTURE_2D,texture_);
+ if(target){glDeleteTextures(1,&target);target=0;}
+ glGenTextures(1,&target);glBindTexture(GL_TEXTURE_2D,target);
  glPixelStorei(GL_UNPACK_ALIGNMENT,1);
  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,image.width(),image.height(),0,GL_RGBA,GL_UNSIGNED_BYTE,image.constBits());
  glGenerateMipmap(GL_TEXTURE_2D);
@@ -107,6 +125,12 @@ bool EarthViewport::reloadTexture(){
  glBindTexture(GL_TEXTURE_2D,0);
  return true;
 }
+bool EarthViewport::reloadTexture(){
+ return glInitialized_&&!texturePath_.isEmpty()&&uploadImageTexture(texturePath_,texture_);
+}
+bool EarthViewport::reloadMoonTexture(){
+ return glInitialized_&&!moonTexturePath_.isEmpty()&&uploadImageTexture(moonTexturePath_,moonTexture_);
+}
 void EarthViewport::resizeGL(int w,int h){glViewport(0,0,w,h);}
 void EarthViewport::paintGL(){
  glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
@@ -115,25 +139,33 @@ void EarthViewport::paintGL(){
  QVector3D eye(radius_*std::cos(e)*std::cos(a),radius_*std::sin(e),radius_*std::cos(e)*std::sin(a));
  QMatrix4x4 model,view,proj;
  // Qt rotates positive Y from X to -Z, hence negative GMST.
- model.rotate(float(-solar_.greenwichMeanSiderealDeg),0,1,0);
+ if(scene_==Scene::Earth)model.rotate(float(-solar_.greenwichMeanSiderealDeg),0,1,0);
  view.lookAt(eye,QVector3D(0,0,0),QVector3D(0,1,0));
  proj.perspective(38.0f,float(width())/float(std::max(1,height())),0.01f,90.0f);
  shader_.bind();
  shader_.setUniformValue("uModel",model);shader_.setUniformValue("uView",view);
- shader_.setUniformValue("uProjection",proj);shader_.setUniformValue("uSunWorld",sunWorld_);
- shader_.setUniformValue("uCameraWorld",eye);shader_.setUniformValue("uHasTexture",texture_!=0);
+ shader_.setUniformValue("uProjection",proj);
+ const QVector3D light=scene_==Scene::Earth ? sunWorld_ : QVector3D(0.8f,0.45f,0.6f).normalized();
+ shader_.setUniformValue("uSunWorld",light);
+ const GLuint currentTexture=scene_==Scene::Earth?texture_:moonTexture_;
+ shader_.setUniformValue("uCameraWorld",eye);shader_.setUniformValue("uHasTexture",currentTexture!=0);
+ shader_.setUniformValue("uIsMoon",scene_==Scene::Moon);
  shader_.setUniformValue("uEarthTexture",0);
- glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,texture_);
+ glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,currentTexture);
  vao_.bind();glDrawElements(GL_TRIANGLES,indexCount_,GL_UNSIGNED_INT,nullptr);
  vao_.release();glBindTexture(GL_TEXTURE_2D,0);shader_.release();
  QPainter painter(this);painter.setRenderHint(QPainter::TextAntialiasing);
  painter.setPen(QColor("#90a6c1"));painter.setFont(QFont("Segoe UI",10));
  painter.drawText(QRect(20,18,width()-40,50),Qt::AlignLeft|Qt::AlignTop,
-                  "EARTH / APPROXIMATE SOLAR GEOMETRY\n拖动旋转视角 · 滚轮缩放");
- if(!texture_){
+                  scene_==Scene::Earth?
+  "EARTH / APPROXIMATE SOLAR GEOMETRY\n拖动旋转视角 · 滚轮缩放":
+  "MOON / NASA LRO GLOBAL COLOR MOSAIC\n资料地球仪 · 固定近侧朝向 · 展示光源（非实时月相）");
+ if(!hasObservedTexture()){
   painter.setPen(QColor("#ffc99c"));
   painter.drawText(QRect(12,height()-75,width()-24,60),Qt::AlignHCenter|Qt::AlignVCenter|Qt::TextWordWrap,
-                   "NASA Blue Marble 真实影像尚未安装\n当前灰色球体仅为几何占位，非地球照片");
+                   scene_==Scene::Earth?
+   "NASA Blue Marble 真实影像尚未安装\n当前灰色球体仅为几何占位，非地球照片":
+   "NASA LRO 月球全球影像尚未安装\n当前灰色球体仅为几何占位，非月球照片");
  }
 }
 void EarthViewport::mousePressEvent(QMouseEvent* e){lastMouse_=e->position().toPoint();}
