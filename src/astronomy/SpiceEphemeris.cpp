@@ -28,7 +28,7 @@ std::string isoUtc(std::chrono::system_clock::time_point instant){
  const year_month_day date{day};
  const hh_mm_ss clock{seconds-day};
  char result[80];
- std::snprintf(result,sizeof(result),"%04d-%02u-%02uT%02lld:%02lld:%02lld UTC",
+ std::snprintf(result,sizeof(result),"%04d-%02u-%02u %02lld:%02lld:%02lld UTC",
   int(date.year()),unsigned(date.month()),unsigned(date.day()),
   static_cast<long long>(clock.hours().count()),
   static_cast<long long>(clock.minutes().count()),
