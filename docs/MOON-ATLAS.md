@@ -1,6 +1,6 @@
 # Lunar Atlas / NASA LRO 真实月球影像
 
-The Moon rendering in **v0.4.0** is a standalone globe, switchable from the
+The Moon rendering in **v0.4.1** is a standalone globe, switchable from the
 Earth view in the same desktop viewport. It loads NASA Goddard SVS's updated
 2025 **CGI Moon Kit** LROC wide-angle camera color mosaic at **2048×1024**.
 
@@ -43,5 +43,5 @@ GitHub Release includes genuine application-rendered Moon screenshot with
 provenance, generated using NASA's JPEG and Qt/OpenGL under Linux Mesa.
 
 NASA source credit is required when displaying screenshots in the README.
-No lunar terrain displacement is applied in v0.4.0; surface relief is color
+No lunar terrain displacement is applied in v0.4.1; surface relief is color
 texture, not an actual DEM mesh.

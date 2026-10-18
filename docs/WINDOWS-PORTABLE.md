@@ -1,5 +1,5 @@
-# Celestial Atlas v0.4.0 — Windows portable preview
-# Celestial Atlas v0.4.0 — Windows 便携预览版
+# Celestial Atlas v0.4.1 — Windows portable preview
+# Celestial Atlas v0.4.1 — Windows 便携预览版
 
 1. Extract the **entire** ZIP archive, not just CelestialAtlas.exe.
 2. Open the extracted CelestialAtlas folder and launch CelestialAtlas.exe.

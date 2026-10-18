@@ -53,12 +53,12 @@ jobs:
           if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
           Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
           Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
-          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.4.0-Windows-x64.zip") -Force
-          Get-FileHash "CelestialAtlas-v0.4.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.4.1-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.4.1-Windows-x64.zip" -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable-x64
-          path: CelestialAtlas-v0.4.0-Windows-x64.zip
+          path: CelestialAtlas-v0.4.1-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -175,7 +175,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  release-v0_4_0:
+  release-v0_4_1:
     needs: [core-linux, gui-windows, render-linux]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -193,24 +193,24 @@ jobs:
         with:
           name: verified-earth-render
           path: .
-      - name: Publish immutable v0.4.0 source, portable and real screenshot
+      - name: Publish immutable v0.4.1 source, portable and real screenshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.4.0 >/dev/null 2>&1; then
-            echo "Version v0.4.0 already published. Refusing to overwrite an immutable release."
+          if gh release view v0.4.1 >/dev/null 2>&1; then
+            echo "Version v0.4.1 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          test -s CelestialAtlas-v0.4.0-Windows-x64.zip
-          git archive --format=zip --output=CelestialAtlas-v0.4.0-source.zip HEAD
+          test -s CelestialAtlas-v0.4.1-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.4.1-source.zip HEAD
           test -s CelestialAtlas-real-viewport.png
           test -s CelestialAtlas-real-workbench.png
           test -s CelestialAtlas-real-moon-workbench.png
-          sha256sum CelestialAtlas-v0.4.0-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
-          gh release create v0.4.0 \
-            CelestialAtlas-v0.4.0-source.zip \
-            CelestialAtlas-v0.4.0-Windows-x64.zip \
+          sha256sum CelestialAtlas-v0.4.1-*.zip CelestialAtlas-real-*.png > SHA256SUMS.txt
+          gh release create v0.4.1 \
+            CelestialAtlas-v0.4.1-source.zip \
+            CelestialAtlas-v0.4.1-Windows-x64.zip \
             SHA256SUMS.txt \
             CelestialAtlas-real-viewport.png \
             CelestialAtlas-real-viewport.png.provenance.json \
@@ -219,6 +219,6 @@ jobs:
             CelestialAtlas-real-moon-workbench.png \
             CelestialAtlas-real-moon-workbench.png.provenance.json \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.4.0 — LRO Moon Globe + Verified Earth and Moon Renders' \
+            --title 'Celestial Atlas v0.4.1 — LRO Moon Globe + Verified Earth and Moon Renders' \
             --prerelease \
             --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads official NASA NAIF CSPICE/JPL ephemerides and real LROC LRO lunar and Blue Marble Earth mosaics. Both scenes render actual OpenGL screenshots with source provenance; numerical Moon-phase and eclipse-epoch tests still use official kernels. Moon globe lighting is fixed studio lighting, NOT a time-correct Moon phase. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'

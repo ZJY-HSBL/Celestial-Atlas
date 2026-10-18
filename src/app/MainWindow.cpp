@@ -10,6 +10,7 @@
 #include <QMessageBox>
 #include <QSaveFile>
 #include <QScrollArea>
+#include <QStyle>
 #include <QFrame>
 #include <QDateTime>
 #include <QFileInfo>
@@ -39,7 +40,8 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  auto* root=new QVBoxLayout(page);
  root->setContentsMargins(14,14,14,14);root->setSpacing(12);
  auto* header=new QHBoxLayout;
- header->addWidget(label(QStringLiteral("✦  CELESTIAL ATLAS    /    地球科学观测"),"heading"));
+ headerTitle_=label(QStringLiteral("✦  CELESTIAL ATLAS    /    地球科学观测"),"heading");
+ header->addWidget(headerTitle_);
  header->addStretch();
  auto* sceneChoice=new QComboBox;
  sceneSelector_=sceneChoice;
@@ -59,7 +61,10 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  leftLayout->setContentsMargins(12,15,12,15);
  leftLayout->setSpacing(12);
  leftLayout->addWidget(label(QStringLiteral("EXPLORATION"),"section"));
- leftLayout->addWidget(label(QStringLiteral("●  地球空间视图"),"activeItem"));
+ earthNav_=label(QStringLiteral("●  地球空间视图"),"activeItem");
+ moonNav_=label(QStringLiteral("◌  月球全球测绘"),"planned");
+ leftLayout->addWidget(earthNav_);
+ leftLayout->addWidget(moonNav_);
  leftLayout->addWidget(label(QStringLiteral("◌  太阳系导航\n     下一阶段"),"planned"));
  leftLayout->addWidget(label(QStringLiteral("✧  地面真实星空\n     下一阶段"),"planned"));
  leftLayout->addWidget(label(QStringLiteral("◇  恒星际导航\n     后续阶段"),"planned"));
@@ -81,8 +86,10 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  selectedSubtitle_=label(QStringLiteral("太阳系 · 第三颗行星"),"detail");
  rightLayout->addWidget(selectedSubtitle_);
  rightLayout->addSpacing(12);
- rightLayout->addWidget(label(QStringLiteral("平均半径    6,371 km"),"data"));
- rightLayout->addWidget(label(QStringLiteral("太阳光照与地球旋转"),"section"));
+ selectedRadius_=label(QStringLiteral("平均半径    6,371 km"),"data");
+ rightLayout->addWidget(selectedRadius_);
+ solarHeader_=label(QStringLiteral("太阳光照与地球旋转"),"section");
+ rightLayout->addWidget(solarHeader_);
  solarInfo_=label(QStringLiteral("正在计算..."),"data");
  rightLayout->addWidget(solarInfo_);
  rightLayout->addWidget(label(QStringLiteral("MOON / 地月系统"),"section"));
@@ -121,6 +128,15 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
   viewport_->setScene(moon?EarthViewport::Scene::Moon:EarthViewport::Scene::Earth);
   selectedName_->setText(moon?QStringLiteral("月球  /  MOON"):QStringLiteral("地球  /  EARTH"));
   selectedSubtitle_->setText(moon?QStringLiteral("天然卫星 · NASA LRO 全球测绘影像"):QStringLiteral("太阳系 · 第三颗行星"));
+  selectedRadius_->setText(moon?QStringLiteral("平均半径    1,737.4 km"):QStringLiteral("平均半径    6,371 km"));
+  headerTitle_->setText(moon?QStringLiteral("✦  CELESTIAL ATLAS   /   月球全球测绘"):QStringLiteral("✦  CELESTIAL ATLAS   /   地球科学观测"));
+  solarHeader_->setVisible(!moon);
+  solarInfo_->setVisible(!moon);
+  earthNav_->setObjectName(moon?"planned":"activeItem");
+  moonNav_->setObjectName(moon?"activeItem":"planned");
+  for(QLabel* nav:{earthNav_,moonNav_}){
+   nav->style()->unpolish(nav);nav->style()->polish(nav);nav->update();
+  }
   downloadButton_->setText(moon?QStringLiteral("下载 NASA LRO 月面影像"):QStringLiteral("下载 NASA 地球真实影像"));
   focus->setText(moon?QStringLiteral("月球正面 / 重置视角"):QStringLiteral("聚焦当前地球白昼面"));
   textureInfo_->setText(moon?QStringLiteral("LRO 月面地图：完整全球观测拼接，极区补充资料"):QStringLiteral("NASA Blue Marble 真实地球资料"));
@@ -185,7 +201,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.4.0"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.4.1"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -302,7 +318,9 @@ void MainWindow::refreshStatus(){
 }
 void MainWindow::focusDaylight(){viewport_->focusDaylight();}
 bool MainWindow::loadMoonTextureFromPath(const QString& path){
- return viewport_->setMoonTextureFile(path);
+ const bool ok=viewport_->setMoonTextureFile(path);
+ if(ok)lunarMapStatus_->setText(QStringLiteral("NASA LROC 2048×1024 全球月面测绘影像已加载"));
+ return ok;
 }
 void MainWindow::selectMoonScene(){sceneSelector_->setCurrentIndex(1);}
 bool MainWindow::loadTextureFromPath(const QString& path){
@@ -315,7 +333,7 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.4.0"},
+  {"application","Celestial Atlas 0.4.1"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
@@ -339,7 +357,7 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.4.0"},
+  {"application","Celestial Atlas 0.4.1"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},

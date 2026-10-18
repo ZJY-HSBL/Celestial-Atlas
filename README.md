@@ -4,7 +4,9 @@
 
 [Releases](https://github.com/ZJY-HSBL/Celestial-Atlas/releases) · [CI](https://github.com/ZJY-HSBL/Celestial-Atlas/actions) · [Scientific Integrity](docs/scientific-integrity.md) · [Windows Guide](docs/WINDOWS-PORTABLE.md)
 
-## v0.4.0 — NASA LRO Moon Globe / 真实月球全球观测影像
+## v0.4.1 — NASA LRO Moon Globe / 真实月球全球观测影像
+
+v0.4.1 fixes Moon-specific interface inconsistencies detected in the v0.4.0 actual render: header, active scene navigation, lunar radius, global-map loaded status, and hiding Earth-only sunlight controls in Moon view.
 
 v0.4 introduces a **switchable 3D Moon Survey globe** with a genuine NASA Lunar Reconnaissance Orbiter global image mosaic, its own download/cache/attribution and genuine program-rendered screenshots.
 
@@ -29,7 +31,7 @@ This remains an **early Earth visualization prototype**, not a completed solar-s
 
 ### Run on Windows / Windows 运行方式
 
-1. Open [v0.4.0 Release](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/tag/v0.4.0) and download `CelestialAtlas-v0.4.0-Windows-x64.zip` once the CI release has passed.
+1. Open [v0.4.1 Release](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/tag/v0.4.1) and download `CelestialAtlas-v0.4.1-Windows-x64.zip` once the CI release has passed.
 2. Extract all files and run `CelestialAtlas.exe`; do **not** run the .exe directly inside the ZIP.
 3. Download the NASA imagery from the app, then drag/zoom/change UTC time and use **保存真实渲染截图** to export a genuine program screenshot.
 4. Requires Windows x64, an OpenGL 3.3 capable GPU/driver and [Microsoft Visual C++ x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist). If running without an OpenGL 3.3 context, rendering will fail.
@@ -46,9 +48,9 @@ NASA Blue Marble is a **multi-date satellite observation composite**, not a live
 
 Program screenshots can be exported from the desktop app. **Moon LRO real-data preview / 月球全球影像**
 
-![Real Moon globe rendered by the C++ Qt OpenGL application from NASA LROC global observed mosaic](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.0/CelestialAtlas-real-moon-workbench.png)
+![Real Moon globe rendered by the C++ Qt OpenGL application from NASA LROC global observed mosaic](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.1/CelestialAtlas-real-moon-workbench.png)
 
-[Observed Moon texture provenance](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.0/CelestialAtlas-real-moon-workbench.png.provenance.json) — NASA SVS CGI Moon Kit, https://svs.gsfc.nasa.gov/4720/.
+[Observed Moon texture provenance](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.1/CelestialAtlas-real-moon-workbench.png.provenance.json) — NASA SVS CGI Moon Kit, https://svs.gsfc.nasa.gov/4720/.
 
 The Moon here is a **standalone survey globe** with *fixed studio lighting*, not its true orbital distance, lunar libration, or time-correct illuminated phase. The NASA 2025 LROC mosaic is processed for rendering; polar gaps were supplemented with LOLA albedo imagery. Read [Moon Atlas scientific limitations](docs/MOON-ATLAS.md).
 
@@ -58,13 +60,13 @@ This image is exported by the **actual C++/Qt6/OpenGL application**, running und
 
 **完整工作台 / Actual desktop workspace**
 
-![Real Celestial Atlas Qt desktop interface with NASA Earth imagery](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.0/CelestialAtlas-real-workbench.png)
+![Real Celestial Atlas Qt desktop interface with NASA Earth imagery](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.1/CelestialAtlas-real-workbench.png)
 
 **真实视口 / Actual OpenGL viewport**
 
-![Actual Qt OpenGL Earth viewport from NASA Blue Marble](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.0/CelestialAtlas-real-viewport.png)
+![Actual Qt OpenGL Earth viewport from NASA Blue Marble](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.1/CelestialAtlas-real-viewport.png)
 
-[OpenGL image provenance](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.0/CelestialAtlas-real-viewport.png.provenance.json) · [Desktop image provenance](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.0/CelestialAtlas-real-workbench.png.provenance.json). The star field, Moon and planet imagery are not implemented yet.
+[OpenGL image provenance](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.1/CelestialAtlas-real-viewport.png.provenance.json) · [Desktop image provenance](https://github.com/ZJY-HSBL/Celestial-Atlas/releases/download/v0.4.1/CelestialAtlas-real-workbench.png.provenance.json). The star field, Moon and planet imagery are not implemented yet.
 
 ### Build from source / 源码构建
 

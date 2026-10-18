@@ -28,6 +28,11 @@ private:
  QDateTimeEdit* timeEdit_=nullptr;
  QLabel* solarInfo_=nullptr;
  QLabel* selectedName_=nullptr;
+ QLabel* selectedRadius_=nullptr;
+ QLabel* headerTitle_=nullptr;
+ QLabel* earthNav_=nullptr;
+ QLabel* moonNav_=nullptr;
+ QLabel* solarHeader_=nullptr;
  QLabel* selectedSubtitle_=nullptr;
  QComboBox* sceneSelector_=nullptr;
  QLabel* lunarMapStatus_=nullptr;
