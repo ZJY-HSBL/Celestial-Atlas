@@ -40,7 +40,9 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  auto* root=new QVBoxLayout(page);
  root->setContentsMargins(14,14,14,14);root->setSpacing(12);
  auto* header=new QHBoxLayout;
- headerTitle_=label(QStringLiteral("✦  CELESTIAL ATLAS    /    地球科学观测"),"heading");
+ headerTitle_=label(QStringLiteral("CELESTIAL ATLAS"),"heading");
+ headerTitle_->setWordWrap(false);
+ headerTitle_->setMinimumWidth(260);
  header->addWidget(headerTitle_);
  header->addStretch();
  auto* sceneChoice=new QComboBox;
@@ -115,11 +117,12 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
   lunarMapStatus_->setText(error);
  });
  rightLayout->addStretch();
- rightLayout->addWidget(label(QStringLiteral(
+ scienceDisclosure_=label(QStringLiteral(
   "SCIENCE DISCLOSURE\n"
   "太阳方向：低精度近似算法（尚非 JPL 精密星历）\n"
   "地球影像：NASA 多日期卫星拼接，非实时云图\n"
-  "大气光照：可视化近似，不是辐射传输模型"),"caution"));
+  "大气光照：可视化近似，不是辐射传输模型"),"caution");
+ rightLayout->addWidget(scienceDisclosure_);
  auto* focus=new QPushButton(QStringLiteral("聚焦当前地球白昼面"));
  connect(focus,&QPushButton::clicked,viewport_,&EarthViewport::focusDaylight);
  rightLayout->addWidget(focus);
@@ -129,7 +132,12 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
   selectedName_->setText(moon?QStringLiteral("月球  /  MOON"):QStringLiteral("地球  /  EARTH"));
   selectedSubtitle_->setText(moon?QStringLiteral("天然卫星 · NASA LRO 全球测绘影像"):QStringLiteral("太阳系 · 第三颗行星"));
   selectedRadius_->setText(moon?QStringLiteral("平均半径    1,737.4 km"):QStringLiteral("平均半径    6,371 km"));
-  headerTitle_->setText(moon?QStringLiteral("✦  CELESTIAL ATLAS   /   月球全球测绘"):QStringLiteral("✦  CELESTIAL ATLAS   /   地球科学观测"));
+  headerTitle_->setText(QStringLiteral("CELESTIAL ATLAS"));
+  scienceDisclosure_->setText(moon?
+    (spice_.lunarOrientationReady()?
+      QStringLiteral("LUNAR SCIENCE / NASA+JPL\n贴图：LROC 真实观测拼接\n姿态：DE440 MOON_ME\n光照：DE442s 地心几何方向\n不含：地面视差、光行时修正、DEM 高程"):
+      QStringLiteral("MOON SURVEY / NASA LRO\n贴图：LROC 真实观测拼接\n姿态：固定测绘浏览朝向\n光照：展示灯光（非月相）\n尚未安装 CSPICE 月球 FK/PCK")):
+    QStringLiteral("EARTH SCIENCE / NASA\n地球：多日期卫星观测拼接\n太阳方向：低精度计算\n光照：可视化近似\n非实时地球或精密 Earth PCK"));
   solarHeader_->setVisible(!moon);
   solarInfo_->setVisible(!moon);
   earthNav_->setObjectName(moon?"planned":"activeItem");
@@ -202,7 +210,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.5.0"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.5.1"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -361,7 +369,7 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.5.0"},
+  {"application","Celestial Atlas 0.5.1"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
@@ -389,7 +397,7 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.5.0"},
+  {"application","Celestial Atlas 0.5.1"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},

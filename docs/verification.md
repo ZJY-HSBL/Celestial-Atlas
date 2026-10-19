@@ -1,4 +1,4 @@
-# Celestial Atlas v0.5.0 verification contract
+# Celestial Atlas v0.5.1 verification contract
 
 **Hard-gated GitHub CI:**
 - Linux C++20 core without Qt6 or SPICE: solar and Moon geometry tests.
@@ -20,3 +20,7 @@ DE440; Sun/Moon positions from DE442s. The Moon remains a standalone sphere,
 not an Earth–Moon orbit overview. Earth's Sun model is still approximate.
 The Windows package does not ship CSPICE. A passing Windows build does not
 certify the software on every GPU. No FPS claim without instrumentation.
+
+## v0.5.1 Moon render metrics
+
+The release emits `lunar-render-metrics.json` calculated by Pillow from the unmodified CI Moon OpenGL renders. Mean RGB value of the central 56% × 60% viewport crop for a near-full and near-new Moon is reported, with a fail threshold of full > new + 12. This metric is a regression test rather than absolute luminance calibration. v0.5.1 also removes Earth-science wording from Moon mode in the app's GUI.

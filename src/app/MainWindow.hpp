@@ -34,6 +34,7 @@ private:
  QLabel* earthNav_=nullptr;
  QLabel* moonNav_=nullptr;
  QLabel* solarHeader_=nullptr;
+ QLabel* scienceDisclosure_=nullptr;
  QLabel* selectedSubtitle_=nullptr;
  QComboBox* sceneSelector_=nullptr;
  QComboBox* speedSelector_=nullptr;

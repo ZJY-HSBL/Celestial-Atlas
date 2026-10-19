@@ -1,6 +1,6 @@
 # Moon Atlas — NASA LRO Survey & JPL Geocentric Libration
 
-**v0.5.0 scientific contract.** This project uses the real NASA 2025 CGI Moon Kit
+**v0.5.1 scientific contract.** This project uses the real NASA 2025 CGI Moon Kit
 [LROC WAC global map](https://svs.gsfc.nasa.gov/4720/) for the lunar surface.
 The 2048×1024 JPEG is based on lunar orbiter observations; it is a
 visualization-processed composite, not a single raw photo. Some high-latitude
@@ -25,7 +25,7 @@ A normal drag releases sub-Earth camera tracking; reset returns to the actual
 sub-Earth viewing direction. The numerical phase fraction is cross-checked
 against the two computed unit directions.
 
-**Fallback:** The Windows portable binary in v0.5.0 does *not* ship a compiled
+**Fallback:** The Windows portable binary in v0.5.1 does *not* ship a compiled
 CSPICE library. Without compiled CSPICE and all official FK/PCK/LSK/SPK kernels,
 the UI explicitly displays Moon Survey mode with fixed studio light. Do not
 interpret that mode as actual Moon phases or positions. The underlying Moon

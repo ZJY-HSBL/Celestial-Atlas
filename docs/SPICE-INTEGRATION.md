@@ -2,7 +2,7 @@
 
 **Scientific computation, not an illustration.**
 
-Celestial Atlas v0.5.0 contains an optional NASA NAIF CSPICE adapter that computes
+Celestial Atlas v0.5.1 contains an optional NASA NAIF CSPICE adapter that computes
 geometric J2000 Earth→Sun and Earth→Moon position vectors from the **DE442s SPK**
 and the **naif0012.tls leap-second kernel**. The lunar illuminated fraction is
 computed from the Sun–Moon–Earth phase angle; the astronomical distances are
