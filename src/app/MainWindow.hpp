@@ -18,6 +18,7 @@ public:
  bool loadMoonTextureFromPath(const QString& path);
  void selectMoonScene();
  void focusDaylight();
+ void setSimulationTimeUtc(const QDateTime& utc);
  bool captureViewport(const QString& outputPath);
  bool captureWorkbench(const QString& outputPath);
 private:
@@ -35,6 +36,7 @@ private:
  QLabel* solarHeader_=nullptr;
  QLabel* selectedSubtitle_=nullptr;
  QComboBox* sceneSelector_=nullptr;
+ QComboBox* speedSelector_=nullptr;
  QLabel* lunarMapStatus_=nullptr;
  QLabel* moonInfo_=nullptr;
  astro::SpiceEphemeris spice_;

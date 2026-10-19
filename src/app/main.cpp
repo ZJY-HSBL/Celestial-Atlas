@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QCommandLineParser>
 #include <QTimer>
+#include <QDateTime>
 #include <QSurfaceFormat>
 int main(int argc,char* argv[]){
  QSurfaceFormat f;
@@ -16,7 +17,7 @@ int main(int argc,char* argv[]){
  QApplication app(argc,argv);
  QCoreApplication::setOrganizationName("CelestialAtlas");
  QCoreApplication::setApplicationName("CelestialAtlas");
- QCoreApplication::setApplicationVersion("0.4.1");
+ QCoreApplication::setApplicationVersion("0.5.0");
  QCommandLineParser parser;
  parser.setApplicationDescription("Celestial Atlas earth visualization and scientific capture");
  parser.addHelpOption();
@@ -26,6 +27,8 @@ int main(int argc,char* argv[]){
  QCommandLineOption workbenchOpt({"w","workbench-screenshot"},"Capture entire actual Qt workspace PNG then exit","path");
  QCommandLineOption moonTextureOpt("moon-texture","NASA LROC 2048x1024 global texture JPEG path","path");
  QCommandLineOption sceneOpt("scene","Select 'earth' or 'moon' before capture","body");
+ QCommandLineOption utcOpt("utc","Set a fixed simulation UTC ISO 8601 time, such as 2024-03-25T07:00:00Z","timestamp");
+ parser.addOption(utcOpt);
  parser.addOption(textureOpt);parser.addOption(moonTextureOpt);
  parser.addOption(sceneOpt);parser.addOption(captureOpt);parser.addOption(workbenchOpt);
  parser.process(app);
@@ -33,6 +36,11 @@ int main(int argc,char* argv[]){
  if(parser.isSet(textureOpt) && !window.loadTextureFromPath(parser.value(textureOpt)))return 3;
  if(parser.isSet(moonTextureOpt) && !window.loadMoonTextureFromPath(parser.value(moonTextureOpt)))return 5;
  if(parser.value(sceneOpt).toLower()=="moon")window.selectMoonScene();
+ if(parser.isSet(utcOpt)){
+  const QDateTime utc=QDateTime::fromString(parser.value(utcOpt),Qt::ISODate);
+  if(!utc.isValid()||utc.timeSpec()==Qt::LocalTime)return 6;
+  window.setSimulationTimeUtc(utc);
+ }
  window.show();
  if(parser.isSet(captureOpt)||parser.isSet(workbenchOpt)){
   QTimer::singleShot(1200,&app,[&]{

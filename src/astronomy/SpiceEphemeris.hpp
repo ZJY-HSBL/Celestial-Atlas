@@ -3,6 +3,16 @@
 #include <chrono>
 #include <string>
 namespace atlas::astro {
+// Orthogonal Moon_ME body frame directions at a chosen ET/TDB instant.
+struct LunarBodyFrame {
+ Vec3 moonToEarthMe{}; // SPICE axes +X 0E, +Y 90E, +Z north
+ Vec3 moonToSunMe{};
+ double subEarthLongitudeDeg=0.0;
+ double subEarthLatitudeDeg=0.0;
+ double subSolarLongitudeDeg=0.0;
+ double subSolarLatitudeDeg=0.0;
+ double ephemerisTimeTdbSeconds=0.0;
+};
 struct SolarLunarSample {
  MoonGeometry lunar;
  Vec3 earthToSunJ2000Km{};
@@ -20,8 +30,12 @@ public:
  static bool builtWithSpice();
  bool loadKernels(const std::string& lsk,const std::string& spk,std::string& error);
  bool sample(std::chrono::system_clock::time_point utc,SolarLunarSample& value,std::string& error) const;
+ bool loadMoonOrientation(const std::string& frameKernel,const std::string& lunarPck,std::string& error);
+ bool sampleMoonBodyFrame(std::chrono::system_clock::time_point utc,LunarBodyFrame& value,std::string& error) const;
+ bool lunarOrientationReady()const{return moonOrientationReady_;}
  bool ready()const{return ready_;}
 private:
  bool ready_=false;
+ bool moonOrientationReady_=false;
 };
 } // namespace atlas::astro

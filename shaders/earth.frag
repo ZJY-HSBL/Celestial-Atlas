@@ -5,6 +5,7 @@ out vec4 fragmentColor;
 uniform sampler2D uEarthTexture;
 uniform bool uHasTexture;
 uniform bool uIsMoon;
+uniform bool uPreciseMoonLighting;
 uniform vec3 uSunWorld,uCameraWorld;
 void main(){
  vec3 N=normalize(vWorldNormal);
@@ -12,7 +13,7 @@ void main(){
  // Visualization approximation, NOT radiative transfer.
  float daylight=smoothstep(-0.035,0.08,cosine);
  float illumination=uIsMoon?
-   0.13+0.87*max(cosine,0.0):
+   (uPreciseMoonLighting?0.012+0.988*max(cosine,0.0):0.13+0.87*max(cosine,0.0)):
    0.035+daylight*(0.17+0.795*max(cosine,0.0));
  vec3 observed=uHasTexture?texture(uEarthTexture,vUV).rgb:vec3(0.22,0.29,0.35);
  vec3 result=observed*illumination;

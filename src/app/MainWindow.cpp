@@ -47,7 +47,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  sceneSelector_=sceneChoice;
  sceneChoice->addItem(QStringLiteral("地球 / Earth"));
  sceneChoice->addItem(QStringLiteral("月球 / Moon Survey"));
- sceneChoice->setToolTip(QStringLiteral("月球模式：真实 LRO 全球测绘影像，但光源为展示灯光，非月相计算"));
+ sceneChoice->setToolTip(QStringLiteral("已安装 CSPICE + DE440 PCK/FK 时采用真实天平动与太阳几何方位，否则固定测绘灯光"));
  header->addWidget(sceneChoice);
  downloadButton_=new QPushButton(QStringLiteral("下载 NASA 地球真实影像"));
  header->addWidget(downloadButton_);
@@ -138,7 +138,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
    nav->style()->unpolish(nav);nav->style()->polish(nav);nav->update();
   }
   downloadButton_->setText(moon?QStringLiteral("下载 NASA LRO 月面影像"):QStringLiteral("下载 NASA 地球真实影像"));
-  focus->setText(moon?QStringLiteral("月球正面 / 重置视角"):QStringLiteral("聚焦当前地球白昼面"));
+  focus->setText(moon?QStringLiteral("回到地心视向 / 重置视角"):QStringLiteral("聚焦当前地球白昼面"));
   textureInfo_->setText(moon?QStringLiteral("LRO 月面地图：完整全球观测拼接，极区补充资料"):QStringLiteral("NASA Blue Marble 真实地球资料"));
  });
  auto* snapshot=new QPushButton(QStringLiteral("保存真实渲染截图"));
@@ -195,13 +195,14 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  auto* now=new QPushButton(QStringLiteral("当前时间"));
  footer->addWidget(now);
  auto* speed=new QComboBox;
+ speedSelector_=speed;
  speed->addItem(QStringLiteral("暂停"),0.0);
  speed->addItem(QStringLiteral("1 × 真实时间"),1.0);
  speed->addItem(QStringLiteral("60 ×"),60.0);
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.4.1"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.5.0"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -263,6 +264,13 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
   if(spice_.loadKernels(QDir(kernelDir).filePath(QStringLiteral("naif0012.tls")).toStdString(),
       QDir(kernelDir).filePath(QStringLiteral("de442s.bsp")).toStdString(),kernelError)){
    moonInfo_->setText(QStringLiteral("JPL DE442s 精密星历已加载"));
+   std::string frameError;
+   if(spice_.loadMoonOrientation(QDir(kernelDir).filePath(QStringLiteral("moon_de440_250416.tf")).toStdString(),
+       QDir(kernelDir).filePath(QStringLiteral("moon_pa_de440_200625.bpc")).toStdString(),frameError)){
+    moonInfo_->setText(QStringLiteral("JPL DE440 MOON_ME 月球姿态已加载"));
+   }else{
+    moonInfo_->setText(QStringLiteral("JPL DE442s 轨道可用；缺少 DE440 FK/PCK，使用测绘浏览模式"));
+   }
   } else if(astro::SpiceEphemeris::builtWithSpice()){
    moonInfo_->setText(QStringLiteral("需要 NASA 官方 naif0012.tls / de442s.bsp 内核。\n当前月相不可用。"));
   }else{
@@ -314,9 +322,29 @@ void MainWindow::refreshStatus(){
   }else{
    moonInfo_->setText(QStringLiteral("JPL 星历计算失败：%1").arg(QString::fromStdString(error)));
   }
+  if(spice_.lunarOrientationReady()){
+   astro::LunarBodyFrame bodyFrame;
+   if(spice_.sampleMoonBodyFrame(timestamp,bodyFrame,error)){
+    viewport_->setMoonBodyFrame(bodyFrame);
+    moonInfo_->setText(moonInfo_->text()+
+     QStringLiteral("\n月球固连 ME 坐标\n地球下点经度 %1° / 纬度 %2°\n太阳下点经度 %3° / 纬度 %4°")
+       .arg(bodyFrame.subEarthLongitudeDeg,0,'f',3)
+       .arg(bodyFrame.subEarthLatitudeDeg,0,'f',3)
+       .arg(bodyFrame.subSolarLongitudeDeg,0,'f',3)
+       .arg(bodyFrame.subSolarLatitudeDeg,0,'f',3));
+   }else{
+    viewport_->clearMoonBodyFrame();
+    moonInfo_->setText(QStringLiteral("月球姿态计算失败: %1").arg(QString::fromStdString(error)));
+   }
+  }
  }
 }
 void MainWindow::focusDaylight(){viewport_->focusDaylight();}
+void MainWindow::setSimulationTimeUtc(const QDateTime& utc){
+ simulatedMilliseconds_=double(utc.toUTC().toMSecsSinceEpoch());
+ speedSelector_->setCurrentIndex(0);
+ refreshStatus();
+}
 bool MainWindow::loadMoonTextureFromPath(const QString& path){
  const bool ok=viewport_->setMoonTextureFile(path);
  if(ok)lunarMapStatus_->setText(QStringLiteral("NASA LROC 2048×1024 全球月面测绘影像已加载"));
@@ -333,14 +361,18 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.4.1"},
+  {"application","Celestial Atlas 0.5.0"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
   {"rendered_body",viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
   {"actual_render_texture",viewport_->scene()==EarthViewport::Scene::Moon?
    "https://svs.gsfc.nasa.gov/4720/":"https://svs.gsfc.nasa.gov/2915/"},
-  {"moon_visualization_note","LROC 2025 global processed observed composite; display-studio lighting, not orbital position, phase, or libration"},
+  {"moon_visualization_note",viewport_->preciseMoonFrameActive()?
+   "JPL DE440 MOON_ME orientation and DE442s geometric Sun/Earth directions; no light-time/aberration correction":
+   "Observed LROC global mosaic with fixed nonphysical studio lighting, no accurate lunar phase/libration"},
+  {"moon_orientation",viewport_->preciseMoonFrameActive()?
+   "JPL DE440 lunar binary PCK with matching MOON_ME FK":"unavailable"},
   {"earth_texture_kind","Observed NASA Blue Marble multi-date mosaic, NOT a live Earth image"},
   {"solar_geometry","Low-precision Sun illumination, NOT SPICE Earth orientation"},
   {"lunar_ephemeris",spice_.ready()?"JPL DE442s geometric J2000 states via NASA CSPICE":"unavailable"}
@@ -357,14 +389,18 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.4.1"},
+  {"application","Celestial Atlas 0.5.0"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
   {"rendered_body",viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
   {"actual_render_texture",viewport_->scene()==EarthViewport::Scene::Moon?
    "https://svs.gsfc.nasa.gov/4720/":"https://svs.gsfc.nasa.gov/2915/"},
-  {"moon_visualization_note","LROC 2025 global processed observed composite; display-studio lighting, not orbital position, phase, or libration"},
+  {"moon_visualization_note",viewport_->preciseMoonFrameActive()?
+   "JPL DE440 MOON_ME orientation and DE442s geometric Sun/Earth directions; no light-time/aberration correction":
+   "Observed LROC global mosaic with fixed nonphysical studio lighting, no accurate lunar phase/libration"},
+  {"moon_orientation",viewport_->preciseMoonFrameActive()?
+   "JPL DE440 lunar binary PCK with matching MOON_ME FK":"unavailable"},
   {"earth_texture_kind","NASA observed multi-date satellite composite, NOT live imagery"},
   {"solar_geometry","Low-precision solar lighting, NOT SPICE Earth orientation"},
   {"lunar_ephemeris",spice_.ready()?"JPL DE442s geometric J2000 states via NASA CSPICE":"unavailable"}

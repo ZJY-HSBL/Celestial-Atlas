@@ -36,12 +36,33 @@ bool EarthViewport::setTextureFile(const QString& path){
  if(glInitialized_){makeCurrent();bool ok=reloadTexture();doneCurrent();update();return ok;}
  return true;
 }
+void EarthViewport::setMoonBodyFrame(const astro::LunarBodyFrame& frame){
+ // MOON_ME +X=0E, +Y=90E, +Z=north. Our mesh uses +X, +Z, +Y.
+ moonSunMeScene_=QVector3D(float(frame.moonToSunMe[0]),float(frame.moonToSunMe[2]),float(frame.moonToSunMe[1])).normalized();
+ moonEarthMeScene_=QVector3D(float(frame.moonToEarthMe[0]),float(frame.moonToEarthMe[2]),float(frame.moonToEarthMe[1])).normalized();
+ preciseMoonFrame_=true;
+ if(scene_==Scene::Moon&&followSubEarth_)focusSubEarth();
+ update();
+}
+void EarthViewport::clearMoonBodyFrame(){preciseMoonFrame_=false;update();}
+void EarthViewport::focusSubEarth(){
+ if(scene_!=Scene::Moon)return;
+ if(!preciseMoonFrame_){yaw_=0.0f;pitch_=12.0f;}
+ else{
+  constexpr float deg=180.0f/3.14159265358979323846f;
+  yaw_=std::atan2(moonEarthMeScene_.z(),moonEarthMeScene_.x())*deg;
+  pitch_=std::asin(std::clamp(moonEarthMeScene_.y(),-1.0f,1.0f))*deg;
+ }
+ radius_=3.65f;
+ followSubEarth_=true;
+ update();
+}
 void EarthViewport::setScene(Scene scene){
  scene_=scene;
  if(scene_==Scene::Moon){
   // Moon survey globe: camera faces mean near side, fixed body orientation.
   // Studio lighting is intentionally NOT an observed lunar phase or libration.
-  yaw_=0.0f;pitch_=12.0f;radius_=3.65f;
+  followSubEarth_=true;focusSubEarth();
  }else{resetCamera();}
  update();
 }
@@ -53,7 +74,7 @@ bool EarthViewport::setMoonTextureFile(const QString& path){
  return true;
 }
 void EarthViewport::focusDaylight(){
- if(scene_==Scene::Moon){yaw_=0.0f;pitch_=12.0f;radius_=3.65f;update();return;}
+ if(scene_==Scene::Moon){focusSubEarth();return;}
  const float pi=3.14159265358979323846f;
  yaw_=std::atan2(sunWorld_.z(),sunWorld_.x())*180.0f/pi;
  pitch_=std::asin(std::clamp(sunWorld_.y(),-1.0f,1.0f))*180.0f/pi;
@@ -145,11 +166,13 @@ void EarthViewport::paintGL(){
  shader_.bind();
  shader_.setUniformValue("uModel",model);shader_.setUniformValue("uView",view);
  shader_.setUniformValue("uProjection",proj);
- const QVector3D light=scene_==Scene::Earth ? sunWorld_ : QVector3D(0.8f,0.45f,0.6f).normalized();
+ const QVector3D light=scene_==Scene::Earth ? sunWorld_ :
+  (preciseMoonFrame_?moonSunMeScene_:QVector3D(0.8f,0.45f,0.6f).normalized());
  shader_.setUniformValue("uSunWorld",light);
  const GLuint currentTexture=scene_==Scene::Earth?texture_:moonTexture_;
  shader_.setUniformValue("uCameraWorld",eye);shader_.setUniformValue("uHasTexture",currentTexture!=0);
  shader_.setUniformValue("uIsMoon",scene_==Scene::Moon);
+ shader_.setUniformValue("uPreciseMoonLighting",scene_==Scene::Moon&&preciseMoonFrame_);
  shader_.setUniformValue("uEarthTexture",0);
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,currentTexture);
  vao_.bind();glDrawElements(GL_TRIANGLES,indexCount_,GL_UNSIGNED_INT,nullptr);
@@ -159,7 +182,9 @@ void EarthViewport::paintGL(){
  painter.drawText(QRect(20,18,width()-40,50),Qt::AlignLeft|Qt::AlignTop,
                   scene_==Scene::Earth?
   "EARTH / APPROXIMATE SOLAR GEOMETRY\n拖动旋转视角 · 滚轮缩放":
-  "MOON / NASA LRO GLOBAL COLOR MOSAIC\n资料地球仪 · 固定近侧朝向 · 展示光源（非实时月相）");
+  (preciseMoonFrame_?
+  "MOON / JPL DE440 MOON_ME LIBRATION + DE442s SUN POSITION\n真实 LROC 测绘图 · 月球固连坐标 · 近地心几何相位":
+  "MOON / NASA LRO GLOBAL COLOR MOSAIC\n固定展示光源（缺少 NAIF 月球 PCK/FK，非真实月相）"));
  if(!hasObservedTexture()){
   painter.setPen(QColor("#ffc99c"));
   painter.drawText(QRect(12,height()-75,width()-24,60),Qt::AlignHCenter|Qt::AlignVCenter|Qt::TextWordWrap,
@@ -173,7 +198,7 @@ void EarthViewport::mouseMoveEvent(QMouseEvent* e){
  if(e->buttons()&Qt::LeftButton){
   QPoint now=e->position().toPoint(),delta=now-lastMouse_;
   yaw_+=delta.x()*0.35f;pitch_=std::clamp(pitch_-delta.y()*0.35f,-85.0f,85.0f);
-  lastMouse_=now;update();
+  lastMouse_=now;if(scene_==Scene::Moon)followSubEarth_=false;update();
  }
 }
 void EarthViewport::wheelEvent(QWheelEvent* e){

@@ -25,3 +25,14 @@ No Moon orbit, high-precision JPL ephemeris, Gaia rendering or distant-galaxy 3D
 ## v0.4.0 two-globe rendering
 
 The same OpenGL sphere and GLSL shader pipeline are reused for Earth and the standalone Moon Survey globe, with separate GPU textures and file caches. The Moon map is a real NASA SVS/LRO processed global survey map with a fixed nonphysical studio light. The program does NOT yet draw a spatial Earth–Moon orbital system or high-accuracy lunar body-fixed libration transforms. The numerical CSPICE panel remains a separate scientifically grounded calculation where built and loaded.
+
+## v0.5 lunar frame layer
+
+The NASA NAIF CSPICE adapter is now optionally provisioned with lunar DE440
+binary PCK and matching ME frame kernel. `LunarBodyFrame` holds the Moon-fixed
+directions to the Earth and Sun; its construction uses NAIF kernel-frame
+transformations, not hand-coded epicycles. The Qt viewport consumes this frame
+to aim the camera toward the Earth and shade a real LROC Moon globe from the
+correct geometric Sun direction. Motion is updated from the shared simulated
+UTC. Without kernels, the viewer remains a survey globe and explicitly says so.
+A true shared-space Earth–Moon orbital renderer is future work.

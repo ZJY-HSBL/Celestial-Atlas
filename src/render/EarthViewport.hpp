@@ -1,5 +1,6 @@
 #pragma once
 #include "astronomy/SolarGeometry.hpp"
+#include "astronomy/SpiceEphemeris.hpp"
 #include <QMatrix4x4>
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
@@ -16,6 +17,10 @@ public:
  explicit EarthViewport(QWidget* parent=nullptr);
  ~EarthViewport() override;
  void setSolarGeometry(const astro::SolarGeometry& geometry);
+ void setMoonBodyFrame(const astro::LunarBodyFrame& frame);
+ void clearMoonBodyFrame();
+ bool preciseMoonFrameActive()const{return preciseMoonFrame_;}
+ void focusSubEarth();
  bool setTextureFile(const QString& path);
  enum class Scene { Earth, Moon };
  void setScene(Scene nextScene);
@@ -50,6 +55,10 @@ private:
  QString texturePath_;
  astro::SolarGeometry solar_{};
  QVector3D sunWorld_{1.0f,0.0f,0.0f};
+ QVector3D moonSunMeScene_{1.0f,0.0f,0.0f};
+ QVector3D moonEarthMeScene_{1.0f,0.0f,0.0f};
+ bool preciseMoonFrame_=false;
+ bool followSubEarth_=true;
  float yaw_=39.0f,pitch_=19.0f,radius_=3.3f;
  QPoint lastMouse_;
 };

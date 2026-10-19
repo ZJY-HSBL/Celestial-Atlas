@@ -16,3 +16,13 @@ Use NAIF CSPICE kernels with explicit kernel manifests (LSK, SPK, PCK, Earth ori
 ## v0.3 scientific precision boundary
 
 JPL DE442s + NASA NAIF N0067 power Moon/Sun *geometric J2000 states* where the official toolkit is compiled and kernels loaded. The Moon illuminated fraction uses Sun–Moon–Earth geometry from those vectors, not a synthetic phase. The **Earth surface day/night terminator is still a distinct approximate model**. Do not label it CSPICE-grade until rigorous Earth orientation and time-frame conversion are implemented and validated. Windows default build does not ship CSPICE: no made-up lunar phase values when unavailable.
+
+## v0.5 lunar phase / libration
+
+The Moon Survey becomes a geocentric geometric lunar visualization only when
+the **DE440 binary lunar orientation PCK and companion MOON_ME FK** and
+**DE442s planetary ephemeris SPK**, together with an NAIF LSK and compiled
+CSPICE, are present. The project reports the distinct data sources.
+Topocentric parallax, light-time/aberration, DEM relief, Earth-orientation
+accuracy, and eclipses are not yet modeled in the rendered globe. When lunar
+orientation kernels are absent, the fixed studio light is explicit.
