@@ -2,7 +2,7 @@
 
 **Scientific computation, not an illustration.**
 
-Celestial Atlas v0.5.1 contains an optional NASA NAIF CSPICE adapter that computes
+Celestial Atlas v0.6.0 contains an optional NASA NAIF CSPICE adapter that computes
 geometric J2000 Earth→Sun and Earth→Moon position vectors from the **DE442s SPK**
 and the **naif0012.tls leap-second kernel**. The lunar illuminated fraction is
 computed from the Sun–Moon–Earth phase angle; the astronomical distances are
@@ -101,3 +101,7 @@ ATLAS_SPICE_KERNEL_DIR="$PWD/data/kernels" ./build-spice/CelestialAtlas \
   --scene moon --moon-texture assets/nasa/lroc_color_2k.jpg \
   --utc 2024-04-08T18:00:00Z --screenshot new.png
 ```
+
+## v0.6 shared spatial system
+
+At one UTC epoch, NAIF CSPICE computes the actual Earth→Moon J2000 position in km from DE442s. The renderer divides by Earth's mean radius and optionally divides the Moon-center position by 12 for an explicitly nonphysical overview. The Moon's body-fixed atlas orientation is transformed by pxform_c("MOON_ME","J2000",et,..) backed by DE440 lunar PCK/FK; both are combined in the same 3D frame. The rigid mean Moon radius remains 1737.4 km. The renderer does not invent a fallback orbit without official ephemeris. Note that this is a geometric geocentric view, not a topocentric one.

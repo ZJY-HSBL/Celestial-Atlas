@@ -4,6 +4,7 @@
 #include <QComboBox>
 #include <QFileDialog>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QImage>
 #include <QPixmap>
@@ -49,6 +50,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  sceneSelector_=sceneChoice;
  sceneChoice->addItem(QStringLiteral("地球 / Earth"));
  sceneChoice->addItem(QStringLiteral("月球 / Moon Survey"));
+ sceneChoice->addItem(QStringLiteral("地月系统 / Earth–Moon"));
  sceneChoice->setToolTip(QStringLiteral("已安装 CSPICE + DE440 PCK/FK 时采用真实天平动与太阳几何方位，否则固定测绘灯光"));
  header->addWidget(sceneChoice);
  downloadButton_=new QPushButton(QStringLiteral("下载 NASA 地球真实影像"));
@@ -67,6 +69,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  moonNav_=label(QStringLiteral("◌  月球全球测绘"),"planned");
  leftLayout->addWidget(earthNav_);
  leftLayout->addWidget(moonNav_);
+ leftLayout->addWidget(label(QStringLiteral("◌  地月双天体导航"),"planned"));
  leftLayout->addWidget(label(QStringLiteral("◌  太阳系导航\n     下一阶段"),"planned"));
  leftLayout->addWidget(label(QStringLiteral("✧  地面真实星空\n     下一阶段"),"planned"));
  leftLayout->addWidget(label(QStringLiteral("◇  恒星际导航\n     后续阶段"),"planned"));
@@ -97,6 +100,9 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  rightLayout->addWidget(label(QStringLiteral("MOON / 地月系统"),"section"));
  moonInfo_=label(QStringLiteral("精密月相尚未加载"),"data");
  rightLayout->addWidget(moonInfo_);
+ systemInfo_=label(QStringLiteral("精密地月系统尚未加载"),"data");
+ systemInfo_->setVisible(false);
+ rightLayout->addWidget(systemInfo_);
  lunarMapStatus_=label(QStringLiteral("月球全球 LRO 影像未安装"),"detail");
  rightLayout->addWidget(lunarMapStatus_);
  auto* moonPhoto=new QPushButton(QStringLiteral("NASA LRO 月球真实观测影像"));
@@ -126,28 +132,56 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  auto* focus=new QPushButton(QStringLiteral("聚焦当前地球白昼面"));
  connect(focus,&QPushButton::clicked,viewport_,&EarthViewport::focusDaylight);
  rightLayout->addWidget(focus);
- connect(sceneChoice,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,focus](int value){
+ systemScale_=new QComboBox;
+ systemScale_->addItem(QStringLiteral("展示：地月中心距离压缩 12×"),12.0);
+ systemScale_->addItem(QStringLiteral("科学：真实中心距离 1:1"),1.0);
+ systemScale_->setVisible(false);
+ rightLayout->addWidget(systemScale_);
+ connect(systemScale_,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int index){
+  viewport_->setDistanceCompression(systemScale_->itemData(index).toDouble());
+  if(viewport_->scene()==EarthViewport::Scene::EarthMoon)refreshStatus();
+ });
+ auto* systemFocusEarth=new QPushButton(QStringLiteral("定位：地球"));
+ auto* systemFocusMoon=new QPushButton(QStringLiteral("定位：月球"));
+ systemFocusEarth->setVisible(false);systemFocusMoon->setVisible(false);
+ connect(systemFocusEarth,&QPushButton::clicked,viewport_,&EarthViewport::focusSystemEarth);
+ connect(systemFocusMoon,&QPushButton::clicked,viewport_,&EarthViewport::focusSystemMoon);
+ rightLayout->addWidget(systemFocusEarth);
+ rightLayout->addWidget(systemFocusMoon);
+ connect(sceneChoice,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,focus,systemFocusEarth,systemFocusMoon](int value){
   const bool moon=value==1;
-  viewport_->setScene(moon?EarthViewport::Scene::Moon:EarthViewport::Scene::Earth);
-  selectedName_->setText(moon?QStringLiteral("月球  /  MOON"):QStringLiteral("地球  /  EARTH"));
-  selectedSubtitle_->setText(moon?QStringLiteral("天然卫星 · NASA LRO 全球测绘影像"):QStringLiteral("太阳系 · 第三颗行星"));
-  selectedRadius_->setText(moon?QStringLiteral("平均半径    1,737.4 km"):QStringLiteral("平均半径    6,371 km"));
+  const bool system=value==2;
+  viewport_->setScene(system?EarthViewport::Scene::EarthMoon:(moon?EarthViewport::Scene::Moon:EarthViewport::Scene::Earth));
+  selectedName_->setText(system?QStringLiteral("地球 + 月球 / SYSTEM"):
+   moon?QStringLiteral("月球  /  MOON"):QStringLiteral("地球  /  EARTH"));
+  selectedSubtitle_->setText(system?QStringLiteral("地心 J2000 共同坐标 / NASA JPL"):
+   moon?QStringLiteral("天然卫星 · NASA LRO 全球测绘影像"):QStringLiteral("太阳系 · 第三颗行星"));
+  selectedRadius_->setText(system?QStringLiteral("地球 R=6371 km · 月球 R=1737.4 km"):
+   moon?QStringLiteral("平均半径    1,737.4 km"):QStringLiteral("平均半径    6,371 km"));
   headerTitle_->setText(QStringLiteral("CELESTIAL ATLAS"));
-  scienceDisclosure_->setText(moon?
+  scienceDisclosure_->setText(system?
+    QStringLiteral("EARTH–MOON SCIENTIFIC SCENE\n两球位置：JPL DE442s (J2000)\n月球姿态：DE440 Moon ME PCK/FK\n地球自转：近似 GMST（非 IERS 精度）\n压缩模式仅缩短两球中心距离；非真实比例间距\n无内核时不生成虚构轨道"):
+   moon?
     (spice_.lunarOrientationReady()?
       QStringLiteral("LUNAR SCIENCE / NASA+JPL\n贴图：LROC 真实观测拼接\n姿态：DE440 MOON_ME\n光照：DE442s 地心几何方向\n不含：地面视差、光行时修正、DEM 高程"):
       QStringLiteral("MOON SURVEY / NASA LRO\n贴图：LROC 真实观测拼接\n姿态：固定测绘浏览朝向\n光照：展示灯光（非月相）\n尚未安装 CSPICE 月球 FK/PCK")):
     QStringLiteral("EARTH SCIENCE / NASA\n地球：多日期卫星观测拼接\n太阳方向：低精度计算\n光照：可视化近似\n非实时地球或精密 Earth PCK"));
-  solarHeader_->setVisible(!moon);
-  solarInfo_->setVisible(!moon);
-  earthNav_->setObjectName(moon?"planned":"activeItem");
+  solarHeader_->setVisible(!moon&&!system);
+  solarInfo_->setVisible(!moon&&!system);
+  earthNav_->setObjectName(moon||system?"planned":"activeItem");
   moonNav_->setObjectName(moon?"activeItem":"planned");
   for(QLabel* nav:{earthNav_,moonNav_}){
    nav->style()->unpolish(nav);nav->style()->polish(nav);nav->update();
   }
-  downloadButton_->setText(moon?QStringLiteral("下载 NASA LRO 月面影像"):QStringLiteral("下载 NASA 地球真实影像"));
-  focus->setText(moon?QStringLiteral("回到地心视向 / 重置视角"):QStringLiteral("聚焦当前地球白昼面"));
-  textureInfo_->setText(moon?QStringLiteral("LRO 月面地图：完整全球观测拼接，极区补充资料"):QStringLiteral("NASA Blue Marble 真实地球资料"));
+  downloadButton_->setText(moon?QStringLiteral("下载 NASA LRO 月面影像"):
+    system?QStringLiteral("下载 NASA 地球贴图（另需月球贴图）"):
+           QStringLiteral("下载 NASA 地球真实影像"));
+  focus->setText(system?QStringLiteral("回到地月系统全景"):
+    moon?QStringLiteral("回到地心视向 / 重置视角"):QStringLiteral("聚焦当前地球白昼面"));
+  systemInfo_->setVisible(system);systemScale_->setVisible(system);
+  systemFocusEarth->setVisible(system);systemFocusMoon->setVisible(system);
+  textureInfo_->setText(system?QStringLiteral("同屏需 NASA Blue Marble + NASA LROC 两套影像及 CSPICE"):
+    moon?QStringLiteral("LRO 月面地图：完整全球观测拼接，极区补充资料"):QStringLiteral("NASA Blue Marble 真实地球资料"));
  });
  auto* snapshot=new QPushButton(QStringLiteral("保存真实渲染截图"));
  connect(snapshot,&QPushButton::clicked,this,[this]{
@@ -210,7 +244,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.5.1"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.6.0"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -296,6 +330,7 @@ void MainWindow::tick(){
  if(++frames_>=8){frames_=0;refreshStatus();}
 }
 void MainWindow::refreshStatus(){
+ bool systemUpdated=false;
  const auto utc=QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC);
  {QSignalBlocker guard(timeEdit_);timeEdit_->setDateTime(utc);}
  using namespace std::chrono;
@@ -334,6 +369,8 @@ void MainWindow::refreshStatus(){
    astro::LunarBodyFrame bodyFrame;
    if(spice_.sampleMoonBodyFrame(timestamp,bodyFrame,error)){
     viewport_->setMoonBodyFrame(bodyFrame);
+    viewport_->setEarthMoonSystem(result,bodyFrame);
+    systemUpdated=true;
     moonInfo_->setText(moonInfo_->text()+
      QStringLiteral("\n月球固连 ME 坐标\n地球下点经度 %1° / 纬度 %2°\n太阳下点经度 %3° / 纬度 %4°")
        .arg(bodyFrame.subEarthLongitudeDeg,0,'f',3)
@@ -345,6 +382,15 @@ void MainWindow::refreshStatus(){
     moonInfo_->setText(QStringLiteral("月球姿态计算失败: %1").arg(QString::fromStdString(error)));
    }
   }
+ }
+ if(!systemUpdated)viewport_->clearEarthMoonSystem();
+ if(viewport_->scene()==EarthViewport::Scene::EarthMoon){
+  systemInfo_->setText(systemUpdated?
+   QStringLiteral("JPL DE442s 地月中心距 %1 km\n渲染间距压缩 %2 倍\n地球/月球半径比例 1:%3\n双球在共同 J2000 场景中")
+    .arg(viewport_->observedEarthMoonDistanceKm(),0,'f',0)
+    .arg(viewport_->distanceCompression(),0,'f',0)
+    .arg(astro::earthMeanRadiusKm/astro::moonMeanRadiusKm,0,'f',3):
+   QStringLiteral("缺少 JPL DE442s + DE440 姿态数据，不生成虚构轨道。"));
  }
 }
 void MainWindow::focusDaylight(){viewport_->focusDaylight();}
@@ -359,6 +405,11 @@ bool MainWindow::loadMoonTextureFromPath(const QString& path){
  return ok;
 }
 void MainWindow::selectMoonScene(){sceneSelector_->setCurrentIndex(1);}
+void MainWindow::selectEarthMoonScene(){sceneSelector_->setCurrentIndex(2);}
+void MainWindow::setTrueEarthMoonScale(bool enabled){systemScale_->setCurrentIndex(enabled?1:0);}
+void MainWindow::focusEarthMoonTarget(bool moon){
+ if(moon)viewport_->focusSystemMoon();else viewport_->focusSystemEarth();
+}
 bool MainWindow::loadTextureFromPath(const QString& path){
  if(!viewport_->setTextureFile(path))return false;
  textureInfo_->setText(QStringLiteral("NASA Blue Marble 2048 × 1024\n真实观测拼接影像"));
@@ -369,11 +420,18 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.5.1"},
+  {"application","Celestial Atlas 0.6.0"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
-  {"rendered_body",viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
+  {"rendered_body",viewport_->scene()==EarthViewport::Scene::EarthMoon?"EarthMoon":
+  viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
+  {"earth_moon_distance_km",viewport_->earthMoonReady()?
+     viewport_->observedEarthMoonDistanceKm():0.0},
+  {"earth_moon_center_compression",viewport_->scene()==EarthViewport::Scene::EarthMoon?
+     viewport_->distanceCompression():0.0},
+  {"moon_center_j2000_km",QJsonArray{viewport_->earthToMoonJ2000Km()[0],
+    viewport_->earthToMoonJ2000Km()[1],viewport_->earthToMoonJ2000Km()[2]}},
   {"actual_render_texture",viewport_->scene()==EarthViewport::Scene::Moon?
    "https://svs.gsfc.nasa.gov/4720/":"https://svs.gsfc.nasa.gov/2915/"},
   {"moon_visualization_note",viewport_->preciseMoonFrameActive()?
@@ -397,11 +455,18 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.5.1"},
+  {"application","Celestial Atlas 0.6.0"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
-  {"rendered_body",viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
+  {"rendered_body",viewport_->scene()==EarthViewport::Scene::EarthMoon?"EarthMoon":
+  viewport_->scene()==EarthViewport::Scene::Moon?"Moon":"Earth"},
+  {"earth_moon_distance_km",viewport_->earthMoonReady()?
+     viewport_->observedEarthMoonDistanceKm():0.0},
+  {"earth_moon_center_compression",viewport_->scene()==EarthViewport::Scene::EarthMoon?
+     viewport_->distanceCompression():0.0},
+  {"moon_center_j2000_km",QJsonArray{viewport_->earthToMoonJ2000Km()[0],
+    viewport_->earthToMoonJ2000Km()[1],viewport_->earthToMoonJ2000Km()[2]}},
   {"actual_render_texture",viewport_->scene()==EarthViewport::Scene::Moon?
    "https://svs.gsfc.nasa.gov/4720/":"https://svs.gsfc.nasa.gov/2915/"},
   {"moon_visualization_note",viewport_->preciseMoonFrameActive()?

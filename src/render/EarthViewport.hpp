@@ -1,6 +1,7 @@
 #pragma once
 #include "astronomy/SolarGeometry.hpp"
 #include "astronomy/SpiceEphemeris.hpp"
+#include "astronomy/EarthMoonSystem.hpp"
 #include <QMatrix4x4>
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
@@ -22,11 +23,24 @@ public:
  bool preciseMoonFrameActive()const{return preciseMoonFrame_;}
  void focusSubEarth();
  bool setTextureFile(const QString& path);
- enum class Scene { Earth, Moon };
+ enum class Scene { Earth, Moon, EarthMoon };
  void setScene(Scene nextScene);
  Scene scene() const { return scene_; }
  bool setMoonTextureFile(const QString& path);
- bool hasObservedTexture() const { return scene_==Scene::Earth ? texture_!=0 : moonTexture_!=0; }
+ bool hasObservedTexture() const {
+  if(scene_==Scene::EarthMoon)return systemValid_&&texture_!=0&&moonTexture_!=0;
+  return scene_==Scene::Earth ? texture_!=0 : moonTexture_!=0;
+ }
+ void setEarthMoonSystem(const astro::SolarLunarSample& ephemeris,const astro::LunarBodyFrame& body);
+ void clearEarthMoonSystem();
+ bool earthMoonReady()const{return systemValid_;}
+ void setDistanceCompression(double factor);
+ double distanceCompression()const{return distanceCompression_;}
+ double observedEarthMoonDistanceKm()const{return systemLayout_.trueDistanceKm;}
+ astro::Vec3 earthToMoonJ2000Km()const{return trueMoonJ2000Km_;}
+ void focusSystemOverview();
+ void focusSystemEarth();
+ void focusSystemMoon();
  void resetCamera();
  void focusDaylight();
 protected:
@@ -61,5 +75,16 @@ private:
  bool followSubEarth_=true;
  float yaw_=39.0f,pitch_=19.0f,radius_=3.3f;
  QPoint lastMouse_;
+ bool systemValid_=false;
+ double distanceCompression_=12.0;
+ astro::EarthMoonLayout systemLayout_{};
+ astro::Vec3 trueMoonJ2000Km_{};
+ QVector3D moonCenterScene_{};
+ QVector3D moonSunInertialScene_{1,0,0};
+ QVector3D sunInertialScene_{1,0,0};
+ QMatrix4x4 moonMeToJ2000Scene_{};
+ QVector3D cameraTarget_{};
+ int systemCameraMode_=0; // 0 overview; 1 Earth; 2 Moon
+ void updateSystemCamera();
 };
 }

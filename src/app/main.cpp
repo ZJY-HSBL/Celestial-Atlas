@@ -17,7 +17,7 @@ int main(int argc,char* argv[]){
  QApplication app(argc,argv);
  QCoreApplication::setOrganizationName("CelestialAtlas");
  QCoreApplication::setApplicationName("CelestialAtlas");
- QCoreApplication::setApplicationVersion("0.5.1");
+ QCoreApplication::setApplicationVersion("0.6.0");
  QCommandLineParser parser;
  parser.setApplicationDescription("Celestial Atlas earth visualization and scientific capture");
  parser.addHelpOption();
@@ -26,7 +26,9 @@ int main(int argc,char* argv[]){
  QCommandLineOption captureOpt({"s","screenshot"},"Capture actual OpenGL viewport PNG then exit","path");
  QCommandLineOption workbenchOpt({"w","workbench-screenshot"},"Capture entire actual Qt workspace PNG then exit","path");
  QCommandLineOption moonTextureOpt("moon-texture","NASA LROC 2048x1024 global texture JPEG path","path");
- QCommandLineOption sceneOpt("scene","Select 'earth' or 'moon' before capture","body");
+ QCommandLineOption sceneOpt("scene","Select earth, moon or system before capture","body");
+ QCommandLineOption scaleOpt("system-scale","Earth-Moon distance setting: true or compressed","mode");
+ parser.addOption(scaleOpt);
  QCommandLineOption utcOpt("utc","Set a fixed simulation UTC ISO 8601 time, such as 2024-03-25T07:00:00Z","timestamp");
  parser.addOption(utcOpt);
  parser.addOption(textureOpt);parser.addOption(moonTextureOpt);
@@ -36,6 +38,8 @@ int main(int argc,char* argv[]){
  if(parser.isSet(textureOpt) && !window.loadTextureFromPath(parser.value(textureOpt)))return 3;
  if(parser.isSet(moonTextureOpt) && !window.loadMoonTextureFromPath(parser.value(moonTextureOpt)))return 5;
  if(parser.value(sceneOpt).toLower()=="moon")window.selectMoonScene();
+ else if(parser.value(sceneOpt).toLower()=="system")window.selectEarthMoonScene();
+ if(parser.value(scaleOpt).toLower()=="true")window.setTrueEarthMoonScale(true);
  if(parser.isSet(utcOpt)){
   const QDateTime utc=QDateTime::fromString(parser.value(utcOpt),Qt::ISODate);
   if(!utc.isValid()||utc.timeSpec()==Qt::LocalTime)return 6;

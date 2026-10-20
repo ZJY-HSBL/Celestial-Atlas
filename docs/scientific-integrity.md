@@ -26,3 +26,7 @@ CSPICE, are present. The project reports the distinct data sources.
 Topocentric parallax, light-time/aberration, DEM relief, Earth-orientation
 accuracy, and eclipses are not yet modeled in the rendered globe. When lunar
 orientation kernels are absent, the fixed studio light is explicit.
+
+## v0.6 geometry disclosure
+
+Real-scale and presentation-scale Earth–Moon views are different. Presentation only compresses distance between centers by 12, not the sphere radii or JPL-reported true physical separation. Neither setting is a complete tidal/shape model: both bodies remain spheres; Earth rotation is an explicitly approximate GMST frame, while lunar frame orientation is from a measured JPL DE440 PCK. The implementation refuses to substitute a circular orbit if true CSPICE data are unavailable.

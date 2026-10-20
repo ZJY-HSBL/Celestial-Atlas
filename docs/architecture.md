@@ -36,3 +36,7 @@ to aim the camera toward the Earth and shade a real LROC Moon globe from the
 correct geometric Sun direction. Motion is updated from the shared simulated
 UTC. Without kernels, the viewer remains a survey globe and explicitly says so.
 A true shared-space Earth–Moon orbital renderer is future work.
+
+## v0.6 shared world coordinates
+
+The common renderer uses an Earth-centered J2000 inertial scene, with x/y/z Qt coordinate permutation (x,z,y) for the NAIF axes. Earth mean radius 6371 km defines one render unit. Moon center and Sun directions originate from the same JPL DE442s epoch, while Moon sphere attitude is transformed from the NASA DE440 Moon_ME frame using pxform_c. The Moon mesh radius is fixed at 1737.4/6371 Earth-radius units. Only the Earth–Moon center vector is optionally divided by twelve for presentation; truthful 1:1 coordinates are always available. The camera can focus either body. Missing CSPICE fails closed, so no invented orbital path is shown.

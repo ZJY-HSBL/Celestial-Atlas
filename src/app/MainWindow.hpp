@@ -17,6 +17,9 @@ public:
  bool loadTextureFromPath(const QString& path);
  bool loadMoonTextureFromPath(const QString& path);
  void selectMoonScene();
+ void selectEarthMoonScene();
+ void setTrueEarthMoonScale(bool enabled);
+ void focusEarthMoonTarget(bool moon);
  void focusDaylight();
  void setSimulationTimeUtc(const QDateTime& utc);
  bool captureViewport(const QString& outputPath);
@@ -39,6 +42,8 @@ private:
  QComboBox* sceneSelector_=nullptr;
  QComboBox* speedSelector_=nullptr;
  QLabel* lunarMapStatus_=nullptr;
+ QLabel* systemInfo_=nullptr;
+ QComboBox* systemScale_=nullptr;
  QLabel* moonInfo_=nullptr;
  astro::SpiceEphemeris spice_;
  QLabel* textureInfo_=nullptr;

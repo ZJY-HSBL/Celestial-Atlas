@@ -1,5 +1,5 @@
-# Celestial Atlas v0.5.1 — Windows portable preview
-# Celestial Atlas v0.5.1 — Windows 便携预览版
+# Celestial Atlas v0.6.0 — Windows portable preview
+# Celestial Atlas v0.6.0 — Windows 便携预览版
 
 1. Extract the **entire** ZIP archive, not just CelestialAtlas.exe.
 2. Open the extracted CelestialAtlas folder and launch CelestialAtlas.exe.
@@ -17,3 +17,7 @@
 **NASA imagery:** https://svs.gsfc.nasa.gov/2915/
 
 **Moon mode on Windows:** This portable build is compiled WITHOUT CSPICE, so Moon mode is a real LROC survey-textured globe under fixed presentation light; it is not a real lunar phase or libration. On the optional Linux CSPICE build, with four official NAIF kernels, the camera and lunar lighting follow authentic geometric sub-Earth and sub-Sun directions. For quantitative lunar science see the separate CSPICE calculations and the NASA reference data notes in docs/MOON-ATLAS.md.
+
+## Earth–Moon spatial scene / 地月共享空间
+
+The optional Linux CSPICE build adds a third Earth–Moon mode driven by JPL DE442s geometric J2000 lunar position and DE440 Moon_ME orientation. It has a real center-separation setting (1:1) and an explicitly labeled presentation mode with only center separation compressed 12x; body radius ratio is conserved. The Windows portable ZIP remains CSPICE-disabled: its shared scene reports that precise orbit data are unavailable and does not render a fictional Moon position. Use the right sidebar to focus Earth/Moon and switch separation. For independent current results, see the JSON metrics attached to the v0.6.0 Release.

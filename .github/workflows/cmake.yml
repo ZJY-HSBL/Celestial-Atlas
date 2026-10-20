@@ -53,12 +53,12 @@ jobs:
           if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
           Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
           Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
-          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.5.1-Windows-x64.zip") -Force
-          Get-FileHash "CelestialAtlas-v0.5.1-Windows-x64.zip" -Algorithm SHA256 | Format-List
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.6.0-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.6.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable-x64
-          path: CelestialAtlas-v0.5.1-Windows-x64.zip
+          path: CelestialAtlas-v0.6.0-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -144,6 +144,28 @@ jobs:
           test -s CelestialAtlas-moon-new-20240408.png
           test -s CelestialAtlas-moon-full-20240325.png.provenance.json
           test -s CelestialAtlas-moon-new-20240408.png.provenance.json
+          for spec in "2024-03-25T07:00:00Z em-20240325" "2024-04-08T18:00:00Z em-20240408"; do
+            set -- $spec
+            env ATLAS_SPICE_KERNEL_DIR="$RUNNER_TEMP/kernels" \
+              LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 QT_QPA_PLATFORM=xcb \
+              xvfb-run -a -s "-screen 0 1280x900x24" \
+              ./build-gui/CelestialAtlas \
+                --scene system --texture "$RUNNER_TEMP/bluemarble-2048.png" \
+                --moon-texture "$RUNNER_TEMP/lroc_color_2k.jpg" --utc "$1" \
+                --screenshot "$PWD/CelestialAtlas-$2.png" \
+                --workbench-screenshot "$PWD/CelestialAtlas-$2-workbench.png"
+          done
+          env ATLAS_SPICE_KERNEL_DIR="$RUNNER_TEMP/kernels" \
+            LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 QT_QPA_PLATFORM=xcb \
+            xvfb-run -a -s "-screen 0 1280x900x24" \
+            ./build-gui/CelestialAtlas --scene system --system-scale true \
+              --texture "$RUNNER_TEMP/bluemarble-2048.png" \
+              --moon-texture "$RUNNER_TEMP/lroc_color_2k.jpg" \
+              --utc 2024-03-25T07:00:00Z \
+              --screenshot "$PWD/CelestialAtlas-em-true-scale.png"
+          test -s CelestialAtlas-em-true-scale.png
+          test -s CelestialAtlas-em-20240325.png
+          test -s CelestialAtlas-em-20240408.png
           /usr/bin/python3 - <<'PY'
           import json
           moon=json.load(open("CelestialAtlas-real-moon-workbench.png.provenance.json",encoding="utf-8"))
@@ -156,6 +178,29 @@ jobs:
                        "CelestialAtlas-real-viewport.png.provenance.json"):
               record=json.load(open(file, encoding="utf-8"))
               assert record["lunar_ephemeris"].startswith("JPL DE442s"), record
+          import math
+          p1=json.load(open("CelestialAtlas-em-20240325.png.provenance.json"))
+          p2=json.load(open("CelestialAtlas-em-20240408.png.provenance.json"))
+          pt=json.load(open("CelestialAtlas-em-true-scale.png.provenance.json"))
+          for p in (p1,p2,pt):
+              assert p["rendered_body"]=="EarthMoon" and "DE440" in p["moon_orientation"], p
+              distance=math.sqrt(sum(float(v)**2 for v in p["moon_center_j2000_km"]))
+              assert 340000<distance<410000, p
+              assert abs(distance-p["earth_moon_distance_km"])<0.001, p
+          assert p1["earth_moon_center_compression"]==12, p1
+          assert pt["earth_moon_center_compression"]==1, pt
+          displacement=math.dist(p1["moon_center_j2000_km"],p2["moon_center_j2000_km"])
+          assert displacement>200000, f"JPL lunar center did not move sufficiently: {displacement}"
+          with open("earth-moon-geometry-metrics.json","w") as f:
+              json.dump({"source":"NASA NAIF / JPL DE442s geometric J2000",
+                         "moon_orientation":"DE440 Moon ME PCK/FK",
+                         "dates_utc":["2024-03-25T07:00:00Z","2024-04-08T18:00:00Z"],
+                         "earth_moon_distance_km":[p1["earth_moon_distance_km"],p2["earth_moon_distance_km"]],
+                         "moon_center_displacement_km":displacement,
+                         "compressed_center_distance_factor":12,
+                         "real_center_distance_factor":1,
+                         "radii_km":{"Earth":6371.0,"Moon":1737.4}},f,indent=2)
+          print(f"Real Earth-Moon J2000 position drift: {displacement:.1f} km")
           print("Actual rendered screenshots contain verified CSPICE data provenance")
           PY
       - name: Validate resulting bitmap is nonblank and contains a textured Earth
@@ -191,8 +236,16 @@ jobs:
           new=lunar_luminance("CelestialAtlas-moon-new-20240408.png")
           assert full>new+12, f"Actual Moon rendering did not follow JPL phase: full={full}, new={new}"
           print(f"Actual lunar phase render brightness — full={full:.2f}, new={new:.2f}; delta={full-new:.2f}")
+          for name in ("CelestialAtlas-em-20240325.png","CelestialAtlas-em-20240408.png","CelestialAtlas-em-true-scale.png"):
+              image=Image.open(name).convert("RGB")
+              assert image.width>=300 and image.height>=300
+              px=list(image.resize((180,180)).getdata())
+              blue=sum(b>r*1.12 and b>g*1.03 and b>65 for r,g,b in px)
+              if "true-scale" not in name:
+                  assert blue>18,f"No Blue Marble in shared render: {name} blue={blue}"
+              print(f"Actual shared Earth-Moon render: {name}; blue pixels {blue}")
           import json
-          payload={"version":"0.5.1",
+          payload={"version":"0.6.0",
                    "data":"Real NASA LRO globe, JPL DE440 Moon orientation, DE442s Sun/Moon position",
                    "epoch_full":"2024-03-25T07:00:00Z",
                    "epoch_new":"2024-04-08T18:00:00Z",
@@ -219,10 +272,13 @@ jobs:
             CelestialAtlas-moon-full-20240325.png.provenance.json
             CelestialAtlas-moon-new-20240408.png.provenance.json
             lunar-render-metrics.json
+            earth-moon-geometry-metrics.json
+            CelestialAtlas-em-*.png
+            CelestialAtlas-em-*.png.provenance.json
           if-no-files-found: error
           retention-days: 30
 
-  release-v0_5_1:
+  release-v0_6_0:
     needs: [core-linux, gui-windows, render-linux]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -240,27 +296,28 @@ jobs:
         with:
           name: verified-earth-render
           path: .
-      - name: Publish immutable v0.5.1 source, portable and real screenshot
+      - name: Publish immutable v0.6.0 source, portable and real screenshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.5.1 >/dev/null 2>&1; then
-            echo "Version v0.5.1 already published. Refusing to overwrite an immutable release."
+          if gh release view v0.6.0 >/dev/null 2>&1; then
+            echo "Version v0.6.0 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          test -s CelestialAtlas-v0.5.1-Windows-x64.zip
-          git archive --format=zip --output=CelestialAtlas-v0.5.1-source.zip HEAD
+          test -s CelestialAtlas-v0.6.0-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.6.0-source.zip HEAD
           test -s CelestialAtlas-real-viewport.png
           test -s CelestialAtlas-real-workbench.png
           test -s CelestialAtlas-real-moon-workbench.png
           test -s CelestialAtlas-moon-full-20240325.png
           test -s CelestialAtlas-moon-new-20240408.png
           test -s lunar-render-metrics.json
-          sha256sum CelestialAtlas-v0.5.1-*.zip CelestialAtlas-real-*.png CelestialAtlas-moon-*.png > SHA256SUMS.txt
-          gh release create v0.5.1 \
-            CelestialAtlas-v0.5.1-source.zip \
-            CelestialAtlas-v0.5.1-Windows-x64.zip \
+          test -s earth-moon-geometry-metrics.json
+          sha256sum CelestialAtlas-v0.6.0-*.zip CelestialAtlas-real-*.png CelestialAtlas-moon-*.png CelestialAtlas-em-*.png > SHA256SUMS.txt
+          gh release create v0.6.0 \
+            CelestialAtlas-v0.6.0-source.zip \
+            CelestialAtlas-v0.6.0-Windows-x64.zip \
             SHA256SUMS.txt \
             CelestialAtlas-real-viewport.png \
             CelestialAtlas-real-viewport.png.provenance.json \
@@ -273,7 +330,18 @@ jobs:
             CelestialAtlas-moon-new-20240408.png \
             CelestialAtlas-moon-new-20240408.png.provenance.json \
             lunar-render-metrics.json \
+            earth-moon-geometry-metrics.json \
+            CelestialAtlas-em-20240325.png \
+            CelestialAtlas-em-20240325.png.provenance.json \
+            CelestialAtlas-em-20240325-workbench.png \
+            CelestialAtlas-em-20240325-workbench.png.provenance.json \
+            CelestialAtlas-em-20240408.png \
+            CelestialAtlas-em-20240408.png.provenance.json \
+            CelestialAtlas-em-20240408-workbench.png \
+            CelestialAtlas-em-20240408-workbench.png.provenance.json \
+            CelestialAtlas-em-true-scale.png \
+            CelestialAtlas-em-true-scale.png.provenance.json \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.5.1 — DE440 Lunar Libration + Quantified Phase Rendering' \
+            --title 'Celestial Atlas v0.6.0 — JPL Earth-Moon Shared 3D Space' \
             --prerelease \
-            --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads official NASA NAIF CSPICE/JPL ephemerides and real LROC LRO lunar and Blue Marble Earth mosaics. Both scenes render actual OpenGL screenshots with source provenance; numerical Moon-phase and eclipse-epoch tests still use official kernels. Linux CSPICE-enabled builds render geocentric lunar libration and lunar sunlight in the MOON_ME body frame using DE440 lunar FK/PCK and DE442s Sun/Moon positions, validated by actual new/full Moon screenshots. Windows fallback remains a fixed survey lamp without SPICE. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'
+            --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads official NASA NAIF CSPICE/JPL ephemerides and real LROC LRO lunar and Blue Marble Earth mosaics. Both scenes render actual OpenGL screenshots with source provenance; numerical Moon-phase and eclipse-epoch tests still use official kernels. Linux CSPICE-enabled builds render a shared J2000 Earth-Moon scene using actual JPL Moon center coordinates, DE440 orientation and real NASA imagery; two epochs and both true/compressed distance scales are verified, alongside full/new Moon screenshots. Windows fallback remains a fixed survey lamp without SPICE. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'

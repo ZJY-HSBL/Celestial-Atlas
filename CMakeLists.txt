@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(CelestialAtlas VERSION 0.5.1 LANGUAGES CXX)
+project(CelestialAtlas VERSION 0.6.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -12,6 +12,7 @@ include(CTest)
 add_library(atlas_astronomy STATIC
  src/astronomy/SolarGeometry.cpp
  src/astronomy/MoonGeometry.cpp
+ src/astronomy/EarthMoonSystem.cpp
  src/astronomy/SpiceEphemeris.cpp)
 if(ATLAS_ENABLE_CSPICE)
  find_path(CSPICE_INCLUDE_DIR NAMES SpiceUsr.h PATHS "${CSPICE_ROOT}/include" NO_DEFAULT_PATH REQUIRED)
@@ -38,6 +39,9 @@ if(BUILD_TESTING)
  add_executable(atlas_moon_tests tests/MoonGeometryTests.cpp)
  target_link_libraries(atlas_moon_tests PRIVATE atlas_astronomy)
  add_test(NAME moon_geometry COMMAND atlas_moon_tests)
+ add_executable(atlas_earth_moon_tests tests/EarthMoonSystemTests.cpp)
+ target_link_libraries(atlas_earth_moon_tests PRIVATE atlas_astronomy)
+ add_test(NAME earth_moon_scale COMMAND atlas_earth_moon_tests)
  if(ATLAS_ENABLE_CSPICE)
   add_executable(atlas_spice_kernel_tests tests/SpiceKernelTests.cpp)
   target_link_libraries(atlas_spice_kernel_tests PRIVATE atlas_astronomy)
