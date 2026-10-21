@@ -7,6 +7,8 @@ namespace atlas::astro {
 struct LunarBodyFrame {
  Vec3 moonToEarthMe{}; // SPICE axes +X 0E, +Y 90E, +Z north
  Vec3 moonToSunMe{};
+ // 3x3 row-major MOON_ME -> J2000 rotation matrix from official lunar PCK/FK.
+ std::array<double,9> meToJ2000{};
  double subEarthLongitudeDeg=0.0;
  double subEarthLatitudeDeg=0.0;
  double subSolarLongitudeDeg=0.0;

@@ -159,6 +159,12 @@ bool SpiceEphemeris::sampleMoonBodyFrame(std::chrono::system_clock::time_point u
  LunarBodyFrame result;
  result.moonToEarthMe=transform(earthState);
  result.moonToSunMe=transform(sunState);
+ SpiceDouble lunarRotation[3][3];
+ pxform_c("MOON_ME","J2000",et,lunarRotation);
+ if(failed_c()){error=spiceError();return false;}
+ for(int row=0;row<3;++row)
+  for(int col=0;col<3;++col)
+   result.meToJ2000[row*3+col]=lunarRotation[row][col];
  auto angles=[](const Vec3& direction){
   constexpr double radToDeg=180.0/3.14159265358979323846;
   return std::pair{std::atan2(direction[1],direction[0])*radToDeg,
