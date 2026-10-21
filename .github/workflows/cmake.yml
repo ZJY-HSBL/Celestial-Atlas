@@ -30,15 +30,37 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2022_64
-      - name: Configure Qt6 / Visual Studio
+      - name: Download NASA NAIF Windows x64 CSPICE N0067 and unmodified JPL kernels
         shell: pwsh
-        run: cmake -S . -B build -G 'Visual Studio 17 2022' -A x64
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zip = Join-Path $env:RUNNER_TEMP "nasa-naif-cspice.zip"
+          & curl.exe -fL --retry 3 --connect-timeout 30 "https://naif.jpl.nasa.gov/pub/naif/toolkit/C/PC_Windows_VisualC_64bit/packages/cspice.zip" -o "$zip"
+          if ($LASTEXITCODE -ne 0) { throw "NASA NAIF official Windows CSPICE download failed" }
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP" -Force
+          $root=Join-Path $env:RUNNER_TEMP "cspice"
+          if (!(Test-Path (Join-Path $root "include/SpiceUsr.h"))) { throw "CSPICE header missing" }
+          if (!(Test-Path (Join-Path $root "lib/cspice.lib"))) { throw "Official Windows cspice.lib missing" }
+          python scripts/fetch_spice_kernels.py --output (Join-Path $env:RUNNER_TEMP "kernels")
+          if ($LASTEXITCODE -ne 0) { throw "NASA/JPL kernel download failed" }
+          foreach ($name in @("de442s.bsp","naif0012.tls","moon_pa_de440_200625.bpc","moon_de440_250416.tf")) {
+            if (!(Test-Path (Join-Path $env:RUNNER_TEMP "kernels/$name"))) { throw "Missing JPL kernel $name" }
+          }
+      - name: Configure Qt6 and official Windows CSPICE
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DATLAS_ENABLE_CSPICE=ON "-DCSPICE_ROOT=$env:RUNNER_TEMP/cspice" "-DATLAS_SPICE_LSK=$env:RUNNER_TEMP/kernels/naif0012.tls" "-DATLAS_SPICE_SPK=$env:RUNNER_TEMP/kernels/de442s.bsp"
+          if ($LASTEXITCODE -ne 0) { throw "Windows CSPICE CMake configure failed" }
       - name: Compile native Qt GUI
         shell: pwsh
         run: cmake --build build --config Release --parallel
-      - name: Run scientific core tests
+      - name: Run JPL ephemerides, eclipse and lunar-frame tests on Windows
         shell: pwsh
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: |
+          $env:ATLAS_SPICE_MOON_FK=Join-Path $env:RUNNER_TEMP "kernels/moon_de440_250416.tf"
+          $env:ATLAS_SPICE_MOON_PCK=Join-Path $env:RUNNER_TEMP "kernels/moon_pa_de440_200625.bpc"
+          ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw "NASA JPL Windows SPICE tests failed" }
       - name: Deploy portable Windows build with official Qt tool
         shell: pwsh
         run: |
@@ -53,12 +75,21 @@ jobs:
           if (!(Test-Path (Join-Path $dist "platforms/qwindows.dll"))) { throw "Qt Windows platform plugin missing" }
           Copy-Item "docs/WINDOWS-PORTABLE.md" (Join-Path $dist "README-WINDOWS.md")
           Copy-Item "LICENSE" (Join-Path $dist "LICENSE.txt")
-          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.6.0-Windows-x64.zip") -Force
-          Get-FileHash "CelestialAtlas-v0.6.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
+          Copy-Item "docs/NAIF-ATTRIBUTION.md" (Join-Path $dist "NASA-NAIF-ATTRIBUTION.md")
+          $dataFolder=Join-Path $dist "kernels"
+          New-Item -ItemType Directory -Force -Path $dataFolder | Out-Null
+          Copy-Item (Join-Path $env:RUNNER_TEMP "kernels/*") $dataFolder -Force
+          foreach ($name in @("de442s.bsp","naif0012.tls","moon_pa_de440_200625.bpc","moon_de440_250416.tf")) {
+            if (!(Test-Path (Join-Path $dataFolder $name))) { throw "Portable kernel missing: $name" }
+          }
+          & (Join-Path $dist "CelestialAtlas.exe") --spice-self-test
+          if ($LASTEXITCODE -ne 0) { throw "Packaged Windows executable failed real NASA SPICE self-test" }
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD "CelestialAtlas-v0.7.0-Windows-x64.zip") -Force
+          Get-FileHash "CelestialAtlas-v0.7.0-Windows-x64.zip" -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable-x64
-          path: CelestialAtlas-v0.6.0-Windows-x64.zip
+          path: CelestialAtlas-v0.7.0-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -245,7 +276,7 @@ jobs:
                   assert blue>18,f"No Blue Marble in shared render: {name} blue={blue}"
               print(f"Actual shared Earth-Moon render: {name}; blue pixels {blue}")
           import json
-          payload={"version":"0.6.0",
+          payload={"version":"0.7.0",
                    "data":"Real NASA LRO globe, JPL DE440 Moon orientation, DE442s Sun/Moon position",
                    "epoch_full":"2024-03-25T07:00:00Z",
                    "epoch_new":"2024-04-08T18:00:00Z",
@@ -278,7 +309,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  release-v0_6_0:
+  release-v0_7_0:
     needs: [core-linux, gui-windows, render-linux]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -296,17 +327,17 @@ jobs:
         with:
           name: verified-earth-render
           path: .
-      - name: Publish immutable v0.6.0 source, portable and real screenshot
+      - name: Publish immutable v0.7.0 source, portable and real screenshot
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          if gh release view v0.6.0 >/dev/null 2>&1; then
-            echo "Version v0.6.0 already published. Refusing to overwrite an immutable release."
+          if gh release view v0.7.0 >/dev/null 2>&1; then
+            echo "Version v0.7.0 already published. Refusing to overwrite an immutable release."
             exit 0
           fi
-          test -s CelestialAtlas-v0.6.0-Windows-x64.zip
-          git archive --format=zip --output=CelestialAtlas-v0.6.0-source.zip HEAD
+          test -s CelestialAtlas-v0.7.0-Windows-x64.zip
+          git archive --format=zip --output=CelestialAtlas-v0.7.0-source.zip HEAD
           test -s CelestialAtlas-real-viewport.png
           test -s CelestialAtlas-real-workbench.png
           test -s CelestialAtlas-real-moon-workbench.png
@@ -314,10 +345,10 @@ jobs:
           test -s CelestialAtlas-moon-new-20240408.png
           test -s lunar-render-metrics.json
           test -s earth-moon-geometry-metrics.json
-          sha256sum CelestialAtlas-v0.6.0-*.zip CelestialAtlas-real-*.png CelestialAtlas-moon-*.png CelestialAtlas-em-*.png > SHA256SUMS.txt
-          gh release create v0.6.0 \
-            CelestialAtlas-v0.6.0-source.zip \
-            CelestialAtlas-v0.6.0-Windows-x64.zip \
+          sha256sum CelestialAtlas-v0.7.0-*.zip CelestialAtlas-real-*.png CelestialAtlas-moon-*.png CelestialAtlas-em-*.png > SHA256SUMS.txt
+          gh release create v0.7.0 \
+            CelestialAtlas-v0.7.0-source.zip \
+            CelestialAtlas-v0.7.0-Windows-x64.zip \
             SHA256SUMS.txt \
             CelestialAtlas-real-viewport.png \
             CelestialAtlas-real-viewport.png.provenance.json \
@@ -342,6 +373,6 @@ jobs:
             CelestialAtlas-em-true-scale.png \
             CelestialAtlas-em-true-scale.png.provenance.json \
             --target "${GITHUB_SHA}" \
-            --title 'Celestial Atlas v0.6.0 — JPL Earth-Moon Shared 3D Space' \
+            --title 'Celestial Atlas v0.7.0 — Windows NAIF CSPICE + JPL Earth-Moon Shared 3D Space' \
             --prerelease \
             --notes 'C++20/Qt6/OpenGL native astronomy preview. Linux CI downloads official NASA NAIF CSPICE/JPL ephemerides and real LROC LRO lunar and Blue Marble Earth mosaics. Both scenes render actual OpenGL screenshots with source provenance; numerical Moon-phase and eclipse-epoch tests still use official kernels. Linux CSPICE-enabled builds render a shared J2000 Earth-Moon scene using actual JPL Moon center coordinates, DE440 orientation and real NASA imagery; two epochs and both true/compressed distance scales are verified, alongside full/new Moon screenshots. Windows fallback remains a fixed survey lamp without SPICE. Windows portable build is compiled WITHOUT CSPICE and correctly labels precision Moon values unavailable. Earth sunlight/rotation remains approximate; precise Earth orientation is not yet implemented. No fake planetary images. See SPICE-INTEGRATION.md and README-WINDOWS.md.'

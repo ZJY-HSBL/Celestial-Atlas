@@ -2,7 +2,7 @@
 
 **Scientific computation, not an illustration.**
 
-Celestial Atlas v0.6.0 contains an optional NASA NAIF CSPICE adapter that computes
+Celestial Atlas v0.7.0 contains an optional NASA NAIF CSPICE adapter that computes
 geometric J2000 Earth→Sun and Earth→Moon position vectors from the **DE442s SPK**
 and the **naif0012.tls leap-second kernel**. The lunar illuminated fraction is
 computed from the Sun–Moon–Earth phase angle; the astronomical distances are
@@ -50,11 +50,22 @@ ATLAS_SPICE_KERNEL_DIR="$PWD/data/kernels" ./build-spice/CelestialAtlas
 
 Use `-DATLAS_BUILD_GUI=OFF` to compile the science library without Qt.
 
-**Windows:** the official Windows CSPICE static library can require a rebuild
-with your newer Visual Studio, per NAIF's compatibility note. The standard
-Windows portable preview is compiled without CSPICE and therefore explicitly
-marks lunar ephemerides unavailable. It does *not* silently substitute a
-hand-drawn phase estimate.
+**Windows (v0.7.0):** The official NASA NAIF Windows x64 Visual C N0067
+`cspice.zip` archive contains `cspice/lib/cspice.lib` and official C headers.
+CI tests direct linking against MSVC 2022, CSPICE kernel mathematics,
+and the executable itself using `--spice-self-test`. For reproducibility,
+CMake is configured with `-DATLAS_ENABLE_CSPICE=ON` and
+`-DCSPICE_ROOT=/path/to/cspice`. The portable ZIP includes **unmodified** NASA
+LSK/SPK/PCK/FK kernel files and their SHA-256 provenance metadata.
+The official NAIF distribution terms are **separate** from the MIT license of
+this project's original source; see [rules](https://naif.jpl.nasa.gov/naif/rules.html).
+
+Windows CI uses this toolkit source:
+https://naif.jpl.nasa.gov/pub/naif/toolkit/C/PC_Windows_VisualC_64bit/packages/cspice.zip
+
+Windows precompiled library compatibility with MSVC 2022 is assessed by
+actual compilation, JPL date/vector tests and packaged-executable self-test,
+not inferred solely from the archive's listed MSVC 2019 compiler version.
 
 ## Scientific definitions
 

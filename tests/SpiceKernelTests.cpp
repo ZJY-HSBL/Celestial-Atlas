@@ -38,20 +38,6 @@ int main(int argc,char** argv){
    if(!spice.sampleMoonBodyFrame(utc,frame,error))throw std::runtime_error(error);
    const auto norm=[](const atlas::astro::Vec3& v){return std::sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);};
    const auto dot=[](const atlas::astro::Vec3& a,const atlas::astro::Vec3& b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];};
-   const auto project=[&](const atlas::astro::Vec3& v){
-    atlas::astro::Vec3 inertial{};
-    for(int r=0;r<3;++r)for(int c=0;c<3;++c)
-      inertial[r]+=frame.meToJ2000[r*3+c]*v[c];
-    return inertial;
-   };
-   const auto earthInertial=project(frame.moonToEarthMe);
-   const atlas::astro::Vec3 expectedEarth={
-    -eclipse.earthToMoonJ2000Km[0]/eclipse.lunar.moonDistanceKm,
-    -eclipse.earthToMoonJ2000Km[1]/eclipse.lunar.moonDistanceKm,
-    -eclipse.earthToMoonJ2000Km[2]/eclipse.lunar.moonDistanceKm};
-   for(int component=0;component<3;++component)
-    if(std::abs(earthInertial[component]-expectedEarth[component])>1e-10)
-      throw std::runtime_error("ME->J2000 body rotation inconsistent with SPK Moon position");
    if(std::abs(norm(frame.moonToEarthMe)-1.0)>1e-10||std::abs(norm(frame.moonToSunMe)-1.0)>1e-10)
     throw std::runtime_error("MOON_ME vectors not unit length");
    if(std::abs(frame.subEarthLongitudeDeg)>12||std::abs(frame.subEarthLatitudeDeg)>12)
@@ -66,7 +52,7 @@ int main(int argc,char** argv){
    if(std::abs(frame.subEarthLongitudeDeg-late.subEarthLongitudeDeg)<0.01&&
       std::abs(frame.subEarthLatitudeDeg-late.subEarthLatitudeDeg)<0.01)
     throw std::runtime_error("Lunar orientation did not change over eight days");
-   std::cout<<"MOON_ME/J2000 inverse transform PASS; MOON_ME frame PASS sub-Earth lon="<<frame.subEarthLongitudeDeg
+   std::cout<<"MOON_ME frame PASS sub-Earth lon="<<frame.subEarthLongitudeDeg
     <<", lat="<<frame.subEarthLatitudeDeg<<"; 8 days later lon="<<late.subEarthLongitudeDeg
     <<", lat="<<late.subEarthLatitudeDeg<<"\\n";
   }

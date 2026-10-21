@@ -1,5 +1,5 @@
-# Celestial Atlas v0.6.0 — Windows portable preview
-# Celestial Atlas v0.6.0 — Windows 便携预览版
+# Celestial Atlas v0.7.0 — Windows portable preview
+# Celestial Atlas v0.7.0 — Windows 便携预览版
 
 1. Extract the **entire** ZIP archive, not just CelestialAtlas.exe.
 2. Open the extracted CelestialAtlas folder and launch CelestialAtlas.exe.
@@ -20,4 +20,8 @@
 
 ## Earth–Moon spatial scene / 地月共享空间
 
-The optional Linux CSPICE build adds a third Earth–Moon mode driven by JPL DE442s geometric J2000 lunar position and DE440 Moon_ME orientation. It has a real center-separation setting (1:1) and an explicitly labeled presentation mode with only center separation compressed 12x; body radius ratio is conserved. The Windows portable ZIP remains CSPICE-disabled: its shared scene reports that precise orbit data are unavailable and does not render a fictional Moon position. Use the right sidebar to focus Earth/Moon and switch separation. For independent current results, see the JSON metrics attached to the v0.6.0 Release.
+The optional Linux CSPICE build adds a third Earth–Moon mode driven by JPL DE442s geometric J2000 lunar position and DE440 Moon_ME orientation. It has a real center-separation setting (1:1) and an explicitly labeled presentation mode with only center separation compressed 12x; body radius ratio is conserved. The Windows portable ZIP remains CSPICE-disabled: its shared scene reports that precise orbit data are unavailable and does not render a fictional Moon position. Use the right sidebar to focus Earth/Moon and switch separation. For independent current results, see the JSON metrics attached to the v0.7.0 Release.
+
+### Precision verification on Windows / 精密星历验证
+
+The Windows CI downloads the NASA official Windows Visual C 64-bit CSPICE zip and NASA/JPL four kernel files, verifies original source files, compiles the scientific tests, and runs both CTest's real kernel integration test and `CelestialAtlas.exe --spice-self-test` on the assembled portable installation. Your computer must have a compatible graphics driver for the GUI; computational unit tests alone do not certify OpenGL rendering. The kernels come with SHA-256 and NASA source metadata. See [NAIF attribution](NAIF-ATTRIBUTION.md) (installed as NASA-NAIF-ATTRIBUTION.md).

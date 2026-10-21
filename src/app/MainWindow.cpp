@@ -14,6 +14,7 @@
 #include <QStyle>
 #include <QFrame>
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QDir>
@@ -244,7 +245,7 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  speed->addItem(QStringLiteral("3600 ×"),3600.0);
  speed->setCurrentIndex(1);footer->addWidget(speed);
  footer->addStretch();
- status_=label(QStringLiteral("本地科学演示 V0.6.0"),"detail");
+ status_=label(QStringLiteral("本地科学演示 V0.7.0"),"detail");
  footer->addWidget(status_);
  root->addLayout(footer);
  setCentralWidget(page);
@@ -300,8 +301,16 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent),downloader_(this),mo
  connect(&frameTimer_,&QTimer::timeout,this,&MainWindow::tick);
  {
   QString kernelDir=qEnvironmentVariable("ATLAS_SPICE_KERNEL_DIR");
-  if(kernelDir.isEmpty())
-   kernelDir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+QStringLiteral("/kernels");
+  // Prefer user override. Portable distribution carries unmodified
+  // NASA/JPL kernels next to the executable, with separate provenance.
+  if(kernelDir.isEmpty()){
+   const QString portable=QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("kernels"));
+   if(QFileInfo::exists(QDir(portable).filePath(QStringLiteral("de442s.bsp"))) &&
+      QFileInfo::exists(QDir(portable).filePath(QStringLiteral("naif0012.tls"))))
+    kernelDir=portable;
+   else
+    kernelDir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+QStringLiteral("/kernels");
+  }
   std::string kernelError;
   if(spice_.loadKernels(QDir(kernelDir).filePath(QStringLiteral("naif0012.tls")).toStdString(),
       QDir(kernelDir).filePath(QStringLiteral("de442s.bsp")).toStdString(),kernelError)){
@@ -420,7 +429,7 @@ bool MainWindow::captureWorkbench(const QString& outputPath){
  const QPixmap pixels=grab();
  if(pixels.isNull()||pixels.width()<300||pixels.height()<300||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.6.0"},
+  {"application","Celestial Atlas 0.7.0"},
   {"capture_kind","Full actual Qt application window including native OpenGL viewport"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},
@@ -455,7 +464,7 @@ bool MainWindow::captureViewport(const QString& outputPath){
  const QImage pixels=viewport_->grabFramebuffer();
  if(pixels.isNull()||pixels.width()<100||pixels.height()<100||!pixels.save(outputPath,"PNG"))return false;
  QJsonObject provenance{
-  {"application","Celestial Atlas 0.6.0"},
+  {"application","Celestial Atlas 0.7.0"},
   {"capture_kind","Unmodified rendered OpenGL viewport screenshot"},
   {"simulated_utc",QDateTime::fromMSecsSinceEpoch(qint64(simulatedMilliseconds_),Qt::UTC).toString(Qt::ISODate)},
   {"earth_texture_source","https://svs.gsfc.nasa.gov/2915/"},

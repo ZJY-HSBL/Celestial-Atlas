@@ -1,4 +1,4 @@
-# Celestial Atlas v0.6.0 verification contract
+# Celestial Atlas v0.7.0 verification contract
 
 **Hard-gated GitHub CI:**
 - Linux C++20 core without Qt6 or SPICE: solar and Moon geometry tests.
@@ -21,10 +21,20 @@ not an Earth–Moon orbit overview. Earth's Sun model is still approximate.
 The Windows package does not ship CSPICE. A passing Windows build does not
 certify the software on every GPU. No FPS claim without instrumentation.
 
-## v0.6.0 Moon render metrics
+## v0.7.0 Moon render metrics
 
-The release emits `lunar-render-metrics.json` calculated by Pillow from the unmodified CI Moon OpenGL renders. Mean RGB value of the central 56% × 60% viewport crop for a near-full and near-new Moon is reported, with a fail threshold of full > new + 12. This metric is a regression test rather than absolute luminance calibration. v0.6.0 also removes Earth-science wording from Moon mode in the app's GUI.
+The release emits `lunar-render-metrics.json` calculated by Pillow from the unmodified CI Moon OpenGL renders. Mean RGB value of the central 56% × 60% viewport crop for a near-full and near-new Moon is reported, with a fail threshold of full > new + 12. This metric is a regression test rather than absolute luminance calibration. v0.7.0 also removes Earth-science wording from Moon mode in the app's GUI.
 
 ## v0.6 shared Earth–Moon acceptance
 
 The independent EarthMoonSystem tests enforce real kilometer-to-Earth-radius transforms, true center separation, unchanged real Moon radius under 12x center separation compression, and failure on absent ephemeris. Linux CSPICE tests verify lunar ME→J2000 rotation. OpenGL integration renders authentic two-body scenes at two fixed UTC epochs and in physical vs 12x compressed separation, checking distinct real JPL vectors (not procedural orbit motion) and NASA blue pixels; a JSON file of measured Earth–Moon data is published in Releases. The Earth orientation remains approximate GMST, unlike the DE440 Moon orientation.
+
+## v0.7 Windows official CSPICE acceptance
+
+- Obtain the original NASA NAIF Windows Visual C 64bit N0067 CSPICE toolkit from NASA.
+- Link MSVC2022 C++ app directly with `cspice.lib`, enable real `ATLAS_HAS_CSPICE` code path.
+- Download original JPL `de442s.bsp`, `naif0012.tls`, `moon_pa_de440_200625.bpc`, `moon_de440_250416.tf`, record provenance and SHA-256.
+- Run CTest Windows real SPICE kernel numerical integration tests **with** `ATLAS_SPICE_MOON_FK` and `ATLAS_SPICE_MOON_PCK`.
+- Copy all four unmodified kernels into the Windows application folder and require `CelestialAtlas.exe --spice-self-test` to return code 0 before releasing any ZIP.
+- Linux Mesa continues to validate actual OpenGL rendering of NASA real-image Earth/Moon scenes. Windows GPU-specific visual certification remains separate and unclaimed.
+- No software/library source is represented as MIT unless it belongs to this project; NASA NAIF rules apply separately.

@@ -40,3 +40,7 @@ A true shared-space Earth–Moon orbital renderer is future work.
 ## v0.6 shared world coordinates
 
 The common renderer uses an Earth-centered J2000 inertial scene, with x/y/z Qt coordinate permutation (x,z,y) for the NAIF axes. Earth mean radius 6371 km defines one render unit. Moon center and Sun directions originate from the same JPL DE442s epoch, while Moon sphere attitude is transformed from the NASA DE440 Moon_ME frame using pxform_c. The Moon mesh radius is fixed at 1737.4/6371 Earth-radius units. Only the Earth–Moon center vector is optionally divided by twelve for presentation; truthful 1:1 coordinates are always available. The camera can focus either body. Missing CSPICE fails closed, so no invented orbital path is shown.
+
+## Windows portable NAIF resolution v0.7
+
+The source supports `ATLAS_ENABLE_CSPICE=ON` on both Linux and Windows. On Windows, CI consumes NAIF's official N0067 Visual C 64-bit `cspice.lib` and packages original JPL ephemeris kernels under `<portable-root>/kernels/`. `MainWindow` chooses the explicit `ATLAS_SPICE_KERNEL_DIR` environment setting first, otherwise finds packaged official kernels relative to the executable, and finally checks the user's application-data kernels folder. The executable `--spice-self-test` validates a real 2024 eclipse-epoch JPL lunar state and MOON_ME frame orientation without creating a 3D window, allowing Windows deployment to be validated before Release publication.

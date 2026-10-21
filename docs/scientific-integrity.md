@@ -30,3 +30,7 @@ orientation kernels are absent, the fixed studio light is explicit.
 ## v0.6 geometry disclosure
 
 Real-scale and presentation-scale Earth–Moon views are different. Presentation only compresses distance between centers by 12, not the sphere radii or JPL-reported true physical separation. Neither setting is a complete tidal/shape model: both bodies remain spheres; Earth rotation is an explicitly approximate GMST frame, while lunar frame orientation is from a measured JPL DE440 PCK. The implementation refuses to substitute a circular orbit if true CSPICE data are unavailable.
+
+## Windows CSPICE deployment verification
+
+The program bundles **unmodified** NASA NAIF/JPL kernel resources in the native Windows portable distribution with provenance SHA-256 JSON and clear NASA NAIF attribution. The NASA/CALTECH toolkit itself is **not** MIT licensed. The program's independent project source remains MIT licensed. Windows SPK/PCK/FK scientific capability must pass real Windows CTest and the packaged `--spice-self-test`. CI on Linux separately renders actual optical output with Mesa. Do not infer Windows GPU compatibility or true Earth's high-precision rotation from these SPICE numeric tests.

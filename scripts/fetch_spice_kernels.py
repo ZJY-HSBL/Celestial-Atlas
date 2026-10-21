@@ -24,7 +24,7 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     for filename, url in KERNELS.items():
         print(f"Requesting {filename} from NASA NAIF...")
-        req = Request(url, headers={"User-Agent": "CelestialAtlas/0.5.0 scientific research"})
+        req = Request(url, headers={"User-Agent": "CelestialAtlas/0.7.0 scientific research"})
         with urlopen(req, timeout=180) as response:
             blob = response.read(80 * 1024 * 1024 + 1)
         if filename.endswith(".tls") or filename.endswith(".tf"):
@@ -47,7 +47,7 @@ def main() -> None:
             "kind": filename.rsplit(".",1)[-1].upper(),
             "sha256": digest, "bytes": len(blob),
             "retrieved_name": filename,
-            "usage_note": "Not included in repository source or Windows portable binary",
+            "usage_note": "Unmodified official kernel. The Windows portable app may include a copy with attribution under NASA NAIF rules."
         }
         (args.output / f"{filename}.provenance.json").write_text(
             json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
